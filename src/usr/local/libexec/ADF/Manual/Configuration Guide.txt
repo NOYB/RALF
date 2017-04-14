@@ -1,0 +1,166 @@
+
+Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+Reflex Active Linux Firewall (RALF)
+
+Automated Dynamic Firewall - Configuration Guide
+
+Rev 0.1 - Draft
+
+This guide is for configuring the Automated Dynamic Firewall (ADF) on CentOS 7.3.
+
+
+1) Configure ADF to the system.
+Edit the "System_Config_App_Specific" section to set appropriate parameters for the system.
+/usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+/usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
+
+Server_Name - If set this parameter will override the hostname.
+SERVICE_NAME - This is the name of the service.  e.g. "Postfix", or "BIND"
+
+ADF_DIR - This is the ADF log directory location.  e.g. "/var/log/ADF/Postfix/", or "/var/log/ADF/BIND/"
+LOG_FILES_DIR - this is the application log files directory location.  e.g. "/var/log/", or "/var/log/postfix/", or "/var/named/data/"
+
+IPSET_SCRIPT - This is the script to create/apply/update the IP set.  Must be specified as an array.  e.g. ("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
+
+LOG_SETS - This is the log sets to be used.  Specified as an array of log set and number of versions to include.  e.g. ("postfix-mx 5"), or ("postfix-mx 5" "postfix-msa 5"), or ("named.run 3"), or ("named.security 3")
+
+TYPES - This is the definitions for regular expressions of what to include from the log files.
+Specified as an array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in space delimited double quoted sets.
+The "CATEGORY" and "TYPENAME" fields are combined to form the name of the regular expression to be used for that type.  e.g. MX_RBL_RegEx
+The COUNT field is the number of occurrence matches before including.
+The FIREWALL_ACTION field is only for ADF_MODE_IPTABLES which is currently not implemented.  But the field must be specified.
+
+Types Example for Postfix:
+TYPES=("MX RBL 1 DROP" "MX PTR 3 DROP" "MX HOSTNAME 3 DROP" "MX HELO 6 DROP" "MX RHSBL 2 DROP" "MX SPF_HELO 6 DROP" "MX SPF_FROM 3 RETURN" "MX PermBlok 1 DROP")
+TYPES_PREFIX="SMTP"
+
+Types Example for BIND:
+TYPES=("Query Cache 1 DROP")
+TYPES_PREFIX="DNS"
+
+Note: Directory parameters require trailing slash.
+
+
+2) Test and debug the configuration.
+To test and debug run the ADF script.
+/usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+/usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
+
+2.1) Check log files.
+/var/log/cron
+/var/log/messages
+/var/log/ADF/BIND/*
+/var/log/ADF/Postfix/*
+
+2.2) Check for the generated IP block/drop lists.
+/var/db/Block_Lists/ADF_DNS_DROP.txt
+/var/db/Block_Lists/ADF_SMTP_DROP.txt
+
+2.3) Check for the generated IP sets.
+/etc/sysconfig/ipset/ADF_DNS_DROP.ipset
+/etc/sysconfig/ipset/ADF_SMTP_DROP.ipset
+
+2.4) Check for the loaded IP sets.
+ipset list ADF_DNS_DROP |head
+ipset list ADF_SMTP_DROP |head
+
+2.6) Enable the IP sets to load during system boot.
+systemctl start ipset
+systemctl -l status ipset
+
+If ipset is running fine then enable it to start during system boot.  This is required for the IP sets to be restored.
+systemctl enable ipset
+
+2.7) Make sure the IP sets load during system boot.
+shutdown -r now
+
+After system has shutdown and rebooted, verify the IP sets loaded.
+ipset list ADF_DNS_DROP |head
+ipset list ADF_SMTP_DROP |head
+
+*** It is critical that the IP sets load successfully during boot up.  Otherwise the firewall (iptables) will fail to load.  Leaving the system unprotected. ***
+
+
+3) Configure the firewall (iptables) to use the loaded IP sets.
+
+3.1) Backup the current iptables rules file.
+cp -np /etc/sysconfig/iptables /etc/sysconfig/iptables.Pre.ADF
+
+3.2) Configure iptables to use the ADF IP sets.
+/etc/sysconfig/iptables
+
+Example for using the ADF IP sets in the "raw" table.
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:DNS_DROP - [0:0]
+:SMTP_DROP - [0:0]
+-A PREROUTING -p udp -m udp --dport 53 -j DNS_DROP
+-A PREROUTING -p tcp -m tcp -m multiport --dports 25,2525,465,587,993,995 -j SMTP_DROP
+-A DNS_DROP -m set --match-set ADF_DNS_DROP src -j DROP
+-A SMTP_DROP -m set --match-set ADF_SMTP_DROP src -j DROP
+COMMIT
+
+3.3) Verify IP Tables loads with the ADF rules.
+systemctl restart iptables
+iptables -nvL -t raw
+
+
+4) Schedule ADF to update the IP sets periodically.
+Create a cron job to update the ADF IP sets.
+/etc/cron.d/ADF_IP_Sets_Update
+
+Example ADF IP sets update cron job.
+# Global variables
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+HOME=/
+
+# Update the ADF_DNS_DROP IP set every 15 minutes
+*/15 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+
+# Update the ADF_SMTP_DROP IP set every 3 minutes
+*/3 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
+
+
+5) Logging
+
+5.1) rsyslog example
+/etc/rsyslog.d/ADF_Log.conf
+
+# Log ADF BIND CRON job
+:msg, regex, "^.*ADF\.IP_Addresses\.BIND" -/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+& stop
+
+# Log ADF_DNS_DROP IP set update
+#:app-name, isequal, "IPSet" and :msg, regex, "^.*ADF_DNS_DROP" -/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+:msg, regex, "^.*ADF_DNS_DROP" -/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+& stop
+
+# Log ADF Postfix CRON job
+:msg, regex, "^.*ADF\.IP_Addresses\.Postfix" -/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
+& stop
+
+# Log ADF_SMTP_DROP IP set update
+#:app-name, isequal, "IPSet" and :msg, regex, "^.*ADF_SMTP_DROP" -/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
+:msg, regex, "^.*ADF_SMTP_DROP" -/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
+& stop
+
+5.2) logrotate example
+/etc/logrotate.d/ADF_Log_Rotation
+
+# ADF cron job log file rotation.
+/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
+{
+	daily
+	rotate 1
+	create
+	missingok
+	sharedscripts
+	postrotate
+	/bin/kill -HUP `cat /var/run/syslogd.pid 2> /dev/null` 2> /dev/null || true
+	endscript
+}

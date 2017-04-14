@@ -1,0 +1,66 @@
+
+Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+Reflex Active Linux Firewall (RALF)
+
+Automated Dynamic Firewall - Installation Guide
+
+Rev 0.1 - Draft
+
+This guide is for installing the Automated Dynamic Firewall (ADF) on CentOS 7.3.
+
+
+Installation Quick Start
+yum -y install ipset
+yum -y install ipset-service
+
+rm -rf /tmp/usr
+tar -xz --directory=/tmp -f ADF.tgz
+cp --preserve=all -r /tmp/usr/local/libexec/* /usr/local/libexec
+
+/usr/libexec/ipset/ipset.start-stop save
+mv -n /etc/sysconfig/ipset /etc/sysconfig/ipset.d/ipset.ipset (optional)
+
+
+1) Install prerequisite packages.
+yum -y install ipset
+yum -y install ipset-service
+
+
+2) Install the Automated Dynamic Firewall
+
+2.1) Extract the ADF.tgz archive to the /tmp directory.
+
+rm -rf /tmp/usr
+
+tar -xz --directory=/tmp -f ADF.tgz
+
+ADF.tgz manifest:
+
+usr/local/libexec/ADF/Manual/Overview.txt
+usr/local/libexec/ADF/Manual/Installation Guide.txt
+usr/local/libexec/ADF/Manual/Configuration Guide.txt
+usr/local/libexec/ADF/Manual/Advanced Configuration Guide.txt
+
+usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
+usr/local/libexec/ADF/ADF.IP_Addresses.Common.sh
+
+usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh
+usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh
+
+usr/local/libexec/Block_Lists/Block_Lists_Init.sh
+usr/local/libexec/Block_Lists/Block_Lists_Main.sh
+
+usr/local/libexec/Block_Lists/Spamhaus_DROP.sh	(something extra for dessert)
+usr/local/libexec/Block_Lists/Spamhaus_EDROP.sh	(something extra for dessert)
+usr/local/libexec/Block_Lists/Full_Bogons_IPv4.sh	(something extra for dessert)
+
+2.2 Put the ADF files in place.
+cp --preserve=all -r /tmp/usr/local/libexec/* /usr/local/libexec
+
+2.3) Save the currently loaded IP sets as individual set files in the /etc/sysconfig/ipset.d/ directory.
+/usr/libexec/ipset/ipset.start-stop save
+
+2.4) If it is necessary to have the previously saved monolithic IP sets continue to be loaded, copy the file into the /etc/sysconfig/ipset.d/ directory with an .ipset file extension.
+mv -n /etc/sysconfig/ipset /etc/sysconfig/ipset.d/ipset.ipset (optional)

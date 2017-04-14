@@ -1,0 +1,12 @@
+
+Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+Reflex Active Linux Firewall (RALF)
+
+Automated Dynamic Firewall - Advanced Configuration Guide
+
+Rev 0.1 - Draft
+
+This guide is for advanced configuration of the Automated Dynamic Firewall (ADF) on CentOS 7.3.
+
+The focus of this guide is the customization of regular expressions for defining the log contents to be included, and also including permanent entries.

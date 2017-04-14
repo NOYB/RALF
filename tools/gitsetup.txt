@@ -1,0 +1,31 @@
+cd /srv/git/NOYB
+mkdir -p ADF
+chown -R git:git /srv/git/NOYB/ADF
+chmod -R 770 /srv/git/NOYB/ADF
+
+tar -xz --selinux --directory=/srv/git/NOYB/ADF -f /ADF.tgz
+chcon -R -u system_u -r object_r -t usr_t /srv/git/NOYB/ADF/src/usr
+chcon -R -u system_u -r object_r -t usr_t /srv/git/NOYB/ADF/src/usr/local
+chcon -R -u system_u -r object_r -t bin_t /srv/git/NOYB/ADF/src/usr/libexec
+
+chcon -R -u system_u -t etc_t src/etc
+chcon -R -u system_u -t system_cron_spool_t src/etc/cron.d
+chcon -R -u system_u -t etc_t src/etc/logrotate.d
+chcon -R -u system_u -t syslog_conf_t src/etc/rsyslog.d
+chcon -R -u system_u -t etc_t src/etc/sysconfig
+chcon -u system_u -t system_conf_t src/etc/sysconfig/iptables.ADF_Example
+
+cd /srv/git/NOYB/ADF
+git init
+chown -R git:git /srv/git/NOYB/ADF/.git
+chmod -R 770 /srv/git/NOYB/ADF/.git
+
+git add .
+git commit -m 'Initial upload'
+chown -R git:git /srv/git/NOYB/ADF/.git
+
+# Tar current ADF git branch
+tar -czv --selinux -C /srv/git/NOYB/ADF/src -f "/ADF.tgz" .
+
+# Tar system ADF
+tar -czv --selinux -C / -f "/ADF.tgz" /usr/local/libexec/ADF/ /usr/local/libexec/Block_Lists/ /etc/cron.d/ADF_IP_Sets_Update /etc/logrotate.d/ADF_Log_Rotation /etc/rsyslog.d/ADF_Log.conf

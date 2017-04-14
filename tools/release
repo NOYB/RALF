@@ -1,0 +1,9 @@
+#! /bin/bash
+
+# Tar current ADF git branch
+cd /srv/git/NOYB/ADF
+tar -czv --selinux -C ./src -f "/ADF.tgz" usr
+
+# Tar system ADF
+#cd /
+#tar -czv --selinux -C / -f "/ADF.tgz" /usr/local/libexec/ADF/ /usr/local/libexec/Block_Lists/

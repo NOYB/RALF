@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+# Automated Dynamic Firewall - BIND
+Version="0.0.1"
+Date="Apr 4, 2017"
+
+#
+# Begin - System Config Specific Constants
+#
+
+# Some tweaking of the static non-regex portions of the <CATEGORY>_<TYPENAME>_RegEx variables in the RegEx section below may also be necessary.
+
+System_Config_App_Specific() {
+#	Server_Name="VPS1"			# Overrides the system hostname.
+	SERVICE_NAME="BIND"
+
+	# Automated Dynamic Firewall directory (with trailing slash)
+	ADF_DIR="/var/log/ADF/BIND/"
+
+	# Service log directory (with trailing slash)
+	LOG_FILES_DIR="/var/named/data/"
+
+	# Script to create/apply/update the IP set (full absolute path).
+	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh")
+
+	# Definitions for regular expressions of what to include.  Such as Query types.
+	# Array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in comma delimited, semi-colon delimited sets.
+	TYPES_SECURITY='Query,Cache,1,DROP;SECURITY,STATIC,1,DROP'
+
+	# Array of log file sets to use.
+	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, TYPES_VAR (space delimited double quoted).
+	LOG_SETS[0]="named.security 5 DNS $TYPES_SECURITY"
+
+	# Note: Number of log file versions to scrape:
+	# e.g. value of 2 for current log file plus *.(0|1) log file.
+	# Scraping of at least 2 log files is desirable so that when rotation provides a new empty log file,
+	# the firewall entries from at least the one previous log file will remain in effect.
+	# However initially it may be best to scrape only the current log file to keep the data set smaller.
+	# Then once the size of log files is reduced, increase the number of log files being scraped.
+	# Another approach would be to begin with a fresh set of log files.
+
+# This has not been included in the refactoring and may or may not be in the future.
+#	# Explicit List (array) of Log files to scrape (hint: oldest first order is preferred)
+#	# This is used if NUM_LOG_FILES value is 0
+#	# Examples:
+#	 LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.3" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+}
+
+#
+# End - System Config Specific Constants
+#
+
+
+# Regular Expression (RegEx) Patterns
+RegEx_Patterns_App_Specific() {
+
+	Category="(client|cname|config|database|default|delegation-only|dispatch|dnssec|edns-disabled|general|lame-server|network|notify|queries|query-errors|rate-limit|resolver|rpz|security|spill|unmatched|update|update-security|xfer-in|xfer-out)"
+#	Severity="(critical|error|warning|notice|info|debug\( .*\)?|dynamic)"
+	Severity="(critical|error|warning|notice|info|debug|dynamic)"
+
+	Query="(query .*(cache).* (denied))"
+	Rate_Limit="(rate limit (slip|drop) REFUSED error response to $IPv4_RegEx$CIDR_RegEx)"
+
+	Type="($Query|$Rate_Limit)"
+
+	  SECURITY_Scrape_RegEx="^.* $Category: $Severity: client $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* $Type.*$"
+
+	      Query_Cache_RegEx="^.* $Category: $Severity: client $IPv4_RegEx#.* query .*cache.* denied$"
+	  SECURITY_STATIC_RegEx="^.* security: $Severity: client $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* STATIC.*$"
+
+    QUERY_ERRORS_INFO_RegEx="^.* query-errors: info: client $IPv4_RegEx#.* $Rate_Limit.*$"
+}
+
+
+Log_Set_Type_Scrape() {
+		# Scrape Log Files for Entries to Include
+		# echo 
+		# echo "$CATEGORY $TYPENAME IP Addresses Log"
+		# 1) awk - Scrape log file for entries of interest using awk with Log_RegEx regular expression and output (print) desired fields (month, day, time, IP address).
+		# 2) sort - Sort in reverse order by IP address, day, and time fields (newest first).
+		# 3) uniq - Remove duplicate lines without comparing the first 5 fields (-f skip fields) and prefix lines with count of occurrences (duplicates plus original).
+		# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
+		# 5) Save results to file for later use.
+		cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
+		|awk --posix -F "[][]| +|#" -v Log_RegEx="$Log_RegEx_2Esc" -v CATEGORY="$CATEGORY" -v TYPENAME="$TYPENAME" '{ if ($0 ~ Log_RegEx) { printf $1 " " $2 " " $3 " " $4 " " $5 " " $6 " " $8 " " $9 " " $10 " " $11 " " $12; for (i=13;i<=NF;i++) printf " %s", $i; print "" }}' \
+		|sort -b -k 6,6 -k 1.8b,1.11br -k 1.4b,1.6bMr -k 1.1b,1.2bnr -k 2r,2r -k 3,3 -k 4,4 \
+		|uniq -c -f 5 \
+		|sort -b -k 2.8b,2.11b -k 2.4b,2.6b -k 2.1b,2.2bn -k 3,3 -k 4,4 -k 5,5 \
+		>"$FILE_NAME_TYPE_LOG"
+
+		IP_FIELD='7'	# Log_Set_Type_Finish() needs the IP address field number.
+}
+
+
+# Display Syntax Info
+Syntax_Info_Display() {
+
+	echo ""
+	echo "$0"
+	echo ""
+	echo "Version: $Version Date: $Date"
+	echo ""
+}
+
+
+# Process Command Line & Check Syntax
+Process_Command_Line_Syntax_Check() {
+
+	case "$1" in
+	'')
+#		if [ "${#@}" -eq "0" ]; then
+			# Check log file time to see if need to continue.
+			# No need to run if log file has not been updated since last run.
+			# To force a run uncomment the following touch command, or run from command line (replace variables with literal dir/filename string).
+			#touch -m "$LOG_FILES_DIR$LOG_FILE_NAME"	# (for dev & debug)
+
+			for LOG_SET in "${LOG_SETS[@]}"
+			do
+				LOG_SET=($LOG_SET)				# Convert string to array (space delimited)
+				LOG_FILE_NAME=${LOG_SET[0]}
+
+				if [ -f "$LOG_FILES_DIR$LOG_FILE_NAME" ] && [ -f "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" ]; then
+					if  [ $(date -r "$LOG_FILES_DIR$LOG_FILE_NAME" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ] || \
+					    [ $(date -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ]; then
+						RUN
+						break
+					fi
+				else
+					RUN
+					break
+				fi
+			done
+
+#			RUN		# Force it to run!	# (for dev & debug)
+
+#		else Syntax_Info_Display
+#		fi
+		;;
+	*)
+		Syntax_Info_Display
+	esac
+}
+
+
+DIR="${BASH_SOURCE%/*}"
+#if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/ADF.IP_Addresses.Common.sh"
+
+Main $@

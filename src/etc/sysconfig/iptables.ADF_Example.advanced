@@ -1,0 +1,51 @@
+# sample configuration for iptables service
+# you can edit this manually or use system-config-firewall
+# please do not ask us to add additional ports/services to this default configuration
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+#
+# ADF IP Sets Example (advanced)
+#
+*raw
+:PREROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:Block_List - [0:0]
+:DNS_DROP - [0:0]
+:Full_Bogons_IPv4 - [0:0]
+:SMTP_DROP - [0:0]
+:Spamhaus_DROP - [0:0]
+:Spamhaus_EDROP - [0:0]
+#
+-A PREROUTING -p udp -m udp --dport 53 -j DNS_DROP
+-A PREROUTING -p tcp -m tcp --dport 53 -j DNS_DROP
+-A PREROUTING -p tcp -m tcp -m multiport --dports 25,2525,465,587,993,995 -j SMTP_DROP
+-A PREROUTING -p tcp -m tcp -m multiport --dports 22,10000 -j RETURN
+-A PREROUTING -j Block_List
+#
+-A OUTPUT -p tcp -m tcp -m multiport --sports 22,10000 -j RETURN
+-A OUTPUT -j Block_List
+#
+-A Block_List -j SMTP_DROP
+-A Block_List -j Spamhaus_DROP
+-A Block_List -j Spamhaus_EDROP
+-A Block_List -j Full_Bogons_IPv4
+#
+-A DNS_DROP -p udp -m string --hex-string "|0000ff0001|" --algo bm --from 40 --to 65535 -j DROP
+-A DNS_DROP -p udp -m set --match-set ADF_DNS_DROP src -j DROP
+-A DNS_DROP -p tcp -m string --hex-string "|0000ff0001|" --algo bm --from 52 --to 65535 -j DROP
+-A DNS_DROP -p tcp -m set --match-set ADF_DNS_DROP src -j DROP
+#
+-A Full_Bogons_IPv4 -m set --match-set Full_Bogons_IPv4 src,dst -j DROP
+-A SMTP_DROP -m set --match-set ADF_SMTP_DROP src -j DROP
+-A Spamhaus_DROP -m set --match-set Spamhaus_DROP src,dst -j DROP
+-A Spamhaus_EDROP -m set --match-set Spamhaus_EDROP src,dst -j DROP
+COMMIT

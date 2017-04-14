@@ -1,0 +1,23 @@
+#! /bin/bash
+
+# git.sync (simple copy method):
+#cp --preserve=all etc/cron.d/* /etc/cron.d
+#cp --preserve=all etc/logrotate.d/* /etc/logrotate.d
+#cp --preserve=all etc/rsyslog.d/* /etc/rsyslog.d
+#cp --preserve=all usr/libexec/ipset/* /usr/libexec/ipset
+#cp --preserve=all usr/local/libexec/* /usr/local/libexec
+
+# Remove previous content first
+rm -f /etc/cron.d/ADF_IP_Sets_Update
+rm -f /etc/logrotate.d/ADF_Log_Rotation
+rm -f /etc/rsyslog.d/ADF_Log.conf
+
+rm -fr /usr/local/libexec/ADF
+rm -fr /usr/local/libexec/Block_Lists
+
+# Tar current git branch content
+ cd /srv/git/NOYB/ADF ; tar --selinux -cpf - -C ./src . | (cd / ; tar --selinux  -xpf -)
+#cd /srv/git/NOYB/ADF ; tar --selinux -cpf - -C ./src . | (cd / ; tar --selinux -Uxpf -)
+
+# Restart rsyslog
+systemctl restart rsyslog

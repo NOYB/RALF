@@ -1,0 +1,279 @@
+#!/bin/bash
+
+# Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+# Automated Dynamic Firewall - Postfix
+Version="0.0.1"
+Date="Aug 8, 2010"
+
+#
+# Begin - System Config Specific Constants
+#
+
+# Some tweaking of the static non-regex portions of the <CATEGORY>_<TYPENAME>_RegEx variables in the RegEx section below may also be necessary.
+
+System_Config_App_Specific() {
+#	Server_Name="VPS1"			# Overrides the system hostname.
+	SERVICE_NAME="Postfix"
+
+	# Automated Dynamic Firewall directory (with trailing slash)
+	ADF_DIR="/var/log/ADF/Postfix/"
+
+	# Service log directory (with trailing slash)
+	LOG_FILES_DIR="/var/log/postfix/"
+
+	# Script to create/apply/update the IP set (full absolute path).
+	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
+
+	# Definitions for regular expressions of what to include.  Such as NOQUEUE reject types.
+	# Array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in space delimited double quoted sets.
+	TYPES_MX='MX,RBL,1,DROP;MX,PTR,3,DROP;MX,HOSTNAME,3,DROP;MX,RELAY,3,DROP;MX,HELO,6,DROP;MX,RHSBL,2,DROP;MX,SPF_HELO,6,DROP;MX,SPF_FROM,3,RETURN;MX,PermBlok,1,DROP'
+	TYPES_MSA='MSA,RATE_LIMIT,1,DROP'
+
+	# Array of log file sets to use.
+	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, TYPES_VAR (space delimited double quoted sets).
+	LOG_SETS[0]="postfix-mx 5 SMTP $TYPES_MX"
+	LOG_SETS[1]="postfix-msa 5 SMTP $TYPES_MSA"
+
+	# Note: Number of log file versions to scrape:
+	# e.g. value of 2 for current log file plus *.(0|1) log file.
+	# Scraping of at least 2 log files is desirable so that when rotation provides a new empty log file,
+	# the firewall entries from at least the one previous log file will remain in effect.
+	# However initially it may be best to scrape only the current log file to keep the data set smaller.
+	# Then once the size of log files is reduced, increase the number of log files being scraped.
+	# Another approach would be to begin with a fresh set of log files.
+
+# Postfix Specific
+	# Additional items that will be used to identify lines to scrape from log files.
+	# Regular Expression can be used
+	#MX_Mail_Service_Name="postfix"
+	MX_Mail_Service_Name="postfix-mx"
+	MX_Mail_Daemon_Name="smtpd"
+
+	MSA_Mail_Service_Name="postfix-msa"
+	MSA_Mail_Daemon_Name="smtpd"
+
+# This has not been included in the refactoring and may or may not be in the future.
+#	# Explicit List (array) of Log files to scrape (hint: oldest first order is preferred)
+#	# This is used if NUM_LOG_FILES value is 0
+#	# Examples:
+#	 LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.3" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+}
+
+#
+# End - System Config Specific Constants
+#
+
+
+# Regular Expression (RegEx) Patterns
+RegEx_Patterns_App_Specific() {
+
+	MX_Mail_Service_Name_RegEx=$MX_Mail_Service_Name
+	MX_Mail_Daemon_Name_RegEx=$MX_Mail_Daemon_Name
+
+	Service_Number_RegEx='[0-9]*'
+
+	SMTP_Status_Code_RegEx='[0-9]{3} ([0-9]\.){2}([0-9])'
+	#SMTP_Status_Code_RegEx='521 5.7.1'
+
+	# Common MX log strings, for each type of NOQUEUE Reject
+	MX_Scrape_RegEx='NOQUEUE: ?.* reject: ?'
+	MX_from_RegEx="(CONNECT|HELO|EHLO|MAIL|RCPT|VRFY) from .*\[$IPv4_RegEx($CIDR_RegEx)?\]: $SMTP_Status_Code_RegEx"
+	MX_Prefix_RegEx="^$Month_Abbr_RegEx  ?$Day_RegEx  ?$Time_24_HHMMss_RegEx $Server_Name_RegEx $MX_Mail_Service_Name_RegEx/$MX_Mail_Daemon_Name_RegEx\[$Service_Number_RegEx\]: $MX_Scrape_RegEx $MX_from_RegEx"
+
+	# MX log strings to look for, for each type of NOQUEUE Reject
+	     MX_RBL_RegEx="$MX_Prefix_RegEx Service unavailable; Client host \[$IPv4_RegEx\] blocked using .*( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+	     MX_PTR_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your reverse hostname, \[$IPv4_RegEx\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+	MX_HOSTNAME_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your hostname, \[$IPv4_RegEx\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+
+	   MX_RELAY_RegEx="$MX_Prefix_RegEx( <.*@.*>:)? Relay access denied;( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+
+	   MX_RHSBL_RegEx="$MX_Prefix_RegEx .* blocked using dbl.* proto=.*SMTP helo=<.*>$"
+#	   MX_RHSBL_RegEx="$MX_Prefix_RegEx Service unavailable; Sender address \[.*@.*\] blocked using .* from=<.*@.*>( to=<.*@.*>)? proto=.*SMTP helo=<.*>$"
+
+	    MX_HELO_RegEx="$MX_Prefix_RegEx <.*>: Helo command rejected: (need).*; proto=.*SMTP helo=<.*>$"
+	MX_SPF_HELO_RegEx="$MX_Prefix_RegEx <.*>: Helo command rejected: Message rejected due to: .* http://www\.openspf\.(org|net)/Why\?s=helo;.*( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP helo=<.*>$"
+	MX_SPF_FROM_RegEx="$MX_Prefix_RegEx <.*@.*>: Sender address rejected: Message rejected due to: .* http://www\.openspf\.(org|net)/Why\?s=mfrom;.* from=<.*@.*>( to=<.*@.*>)? proto=.*SMTP helo=<.*>$"
+
+	MX_PermBlok_RegEx="$MX_Prefix_RegEx (Client host rejected:|Service unavailable;) Permanent (Client|Network) Block; proto=.*SMTP$"
+
+
+
+	MSA_Mail_Service_Name_RegEx=$MSA_Mail_Service_Name
+	MSA_Mail_Daemon_Name_RegEx=$MSA_Mail_Daemon_Name
+
+	MSA_Scrape_RegEx='warning: ?'
+
+	MSA_Prefix_RegEx="^$Month_Abbr_RegEx  ?$Day_RegEx  ?$Time_24_HHMMss_RegEx $Server_Name_RegEx $MSA_Mail_Service_Name_RegEx/$MSA_Mail_Daemon_Name_RegEx\[$Service_Number_RegEx\]: ?"
+
+	MSA_RATE_LIMIT_RegEx="$MSA_Prefix_RegEx.*rate limit exceeded.*$"
+
+	MSA_PermBlok_RegEx="$MSA_Prefix_RegEx .*STATIC$"
+}
+
+
+Log_Set_Type_Scrape() {
+		# Scrape Log Files for Entries to Include
+		# echo 
+		# echo "$CATEGORY $TYPENAME IP Addresses Log"
+		# 1) awk - Scrape log file for entries of interest using awk with Log_RegEx regular expression and output (print) desired fields (month, day, time, IP address).
+		# 2) sort - Sort in reverse order by IP address, day, and time fields (newest first).
+		# 3) uniq - Remove duplicate lines without comparing the first 3 fields (-f skip fields) and prefix lines with count of occurrences (duplicates plus original).
+		# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
+		# 5) Save results to file for later use.
+		cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
+		|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v CATEGORY="$CATEGORY" -v TYPENAME="$TYPENAME" '{ if ($0 ~ Log_RegEx) { if ($2 ~ "^[0-9]$") $2=" "$2; if ((TYPENAME == "HELO") || (TYPENAME == "SPF_HELO")) $25="\t"$NF; else $25=""; if (TYPENAME == "SPF_FROM") $22="\t"$(NF-2); else $22=""; if (TYPENAME == "RBL") $26="\t"$26; else $26=""; if (TYPENAME == "RATE_LIMIT") $13=$18; print $1 " " $2 " " $3 " " $13 "\t" $12 $22 $25 $26 } }' \
+		|sort -b -k 4,4 -k 1,1Mr -k 2,2nr -k 3,3r \
+		|uniq -c -f 3 \
+		|sort -b -k 2,2M -k 3,3n -k 4,4 -k 5,5n \
+		>"$FILE_NAME_TYPE_LOG"
+
+		IP_FIELD='5'	# Log_Set_Type_Finish() needs the IP address field number.
+}
+
+
+# Display Syntax Info
+Syntax_Info_Display() {
+
+	echo ""
+	echo "$0 [OPTIONS]"
+	echo ""
+	echo "OPTIONS    TYPE COUNT FW_ACTION [-v] | STATS [-fn][-z|-nz][-Z] | [UN]INSTALL"
+	echo ""
+	echo "Types:"
+	echo "           RBL         Real-time Block List"
+	echo "           RHSBL       Right Hand Side Block List"
+	echo "           PTR         Reverse Pointer Name"
+	echo "           HOSTNAME    Host Name"
+	echo "           HELO        HELO/EHLO Name"
+	echo "           SPF_HELO    Sender Policy Framework of HELO/EHLO Name (Domain)"
+	echo "           SPF_FROM    Sender Policy Framework of MAIL FROM Domain"
+	echo "           PermBlok    Permanent Network Block"
+	echo ""
+	echo "COUNT      Integer Designating Number of Occurrences per Client Before Including"
+	echo "-v         Verbose Output - Display Lists of From Log & Firewall Chain"
+	echo ""
+	echo "FW_ACTION  Action to be Assigned to the Firewall Chain Rule."
+	echo "           DROP | REJECT | TARPIT"
+	echo ""
+	echo "STATS      List Status for Each of the Chains"
+	echo "-fn        Display First (top) n Filters of Each Chain; ex: -f5"
+	echo "-z         Display Filters With Zero (0) Packet & Byte Counts"
+	echo "-nz        Display Filters With Non-Zero Packet & Byte Counts"
+	echo "-Z         Set Packets & Bytes Counters of Chains to Zero"
+	echo ""
+	echo "[UN]INSTALL Create/Delete IP Tables Firewall Chains & Rules"
+	echo ""
+	echo "Version: $Version Date: $Date"
+	echo ""
+}
+
+
+# Process Command Line & Check Syntax
+Process_Command_Line_Syntax_Check() {
+
+	case "$1" in
+	'')
+#		if [ "${#@}" -eq "0" ]; then
+			# Check log file time to see if need to continue.
+			# No need to run if log file has not been updated since last run.
+			# To force a run uncomment the following touch command, or run from command line (replace variables with literal dir/filename string).
+			#touch -m "$LOG_FILES_DIR$LOG_FILE_NAME"	# (for dev & debug)
+
+			for LOG_SET in "${LOG_SETS[@]}"
+			do
+				LOG_SET=($LOG_SET)				# Convert string to array (space delimited)
+				LOG_FILE_NAME=${LOG_SET[0]}
+
+				if [ -f "$LOG_FILES_DIR$LOG_FILE_NAME" ] && [ -f "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" ]; then
+					if  [ $(date -r "$LOG_FILES_DIR$LOG_FILE_NAME" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ] || \
+					    [ $(date -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ]; then
+						RUN
+						break
+					fi
+				else
+					RUN
+					break
+				fi
+			done
+
+#			RUN		# Force it to run!	# (for dev & debug)
+
+#		else Syntax_Info_Display
+#		fi
+		;;
+	RBL | RHSBL | PTR | HOSTNAME | HELO | SPF_HELO | SPF_FROM | PermBlok)
+		if ([ "${#@}" -ge "3" ] && [ "$2" -ge "1" ]); then
+			for OPTION in $@
+			do
+				case "$OPTION" in
+				  $1)	VERBOSE=""
+					TYPE="$OPTION"	;;
+				  $2)	COUNT="$OPTION"	;;
+	   DROP | REJECT | TARPIT)	FIREWALL_ACTION="$OPTION"	;;
+				'-v')	VERBOSE="TRUE"	;;
+				   *)	Syntax_Info_Display
+					exit
+				esac
+			done
+			TYPES=("$TYPE $COUNT $FIREWALL_ACTION")
+			RUN
+		else Syntax_Info_Display
+		fi
+		;;
+	STATS)
+		RegEx_Patterns
+
+		All='.*'
+		None='^$'
+		Zero='^ *(0+ +){2}'
+		NonZero='^ *([1-9][0-9]*(K|M)? +){2}'
+
+		#Zero the packet and byte counters in all chains if Zero option (-Z) is set.
+		#Include filters based on options specified (All, Zero or Non Zero packet and byte count, First n) (used with grep -v option to invert match sense)
+		for OPTION in $@
+		do
+			case "$OPTION" in
+			STATS)	ZERO_COUNTERS=""
+				ZERO_DISPLAY="$None"	;;
+			 '-z')	ZERO_DISPLAY="$NonZero"	;;
+			'-nz')	ZERO_DISPLAY="$Zero"	;;
+
+			'-f'*)	declare -i NUM_LINES=${OPTION/-f/}
+				if [ $NUM_LINES -lt 0 ]; then NUM_LINES=0
+				fi
+				NUM_LINES=$NUM_LINES+2
+				FIRSTn="-m $NUM_LINES"	;;
+
+			 '-Z')	ZERO_COUNTERS="-Z"	;;
+
+			    *)	Syntax_Info_Display
+				exit
+			esac
+		done
+		STATS
+		;;
+	INSTALL)
+		if [ "${#@}" -eq "1" ]; then	INSTALL
+		else Syntax_Info_Display
+		fi
+		;;
+	UNINSTALL)
+		if [ "${#@}" -eq "1" ]; then	UNINSTALL
+		else Syntax_Info_Display
+		fi
+		;;
+	*)
+		Syntax_Info_Display
+	esac
+}
+
+
+DIR="${BASH_SOURCE%/*}"
+#if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/ADF.IP_Addresses.Common.sh"
+
+Main $@

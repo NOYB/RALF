@@ -1,0 +1,13 @@
+# ADF cron job log file rotation.
+/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
+{
+	daily
+	rotate 1
+	create
+	missingok
+	sharedscripts
+	postrotate
+	/bin/kill -HUP `cat /var/run/syslogd.pid 2> /dev/null` 2> /dev/null || true
+	endscript
+}

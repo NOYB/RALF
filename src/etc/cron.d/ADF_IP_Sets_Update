@@ -1,0 +1,11 @@
+# Global variables
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+HOME=/
+
+# Update the ADF_DNS_DROP IP set every 15 minutes
+*/15 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+
+# Update the ADF_SMTP_DROP IP set every 3 minutes
+*/3 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix

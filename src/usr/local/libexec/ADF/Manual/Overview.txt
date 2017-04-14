@@ -1,0 +1,43 @@
+
+Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+Reflex Active Linux Firewall (RALF)
+
+Automated Dynamic Firewall - Overview
+
+Rev 0.1 - Draft
+
+What it is
+ A dynamic firewall automation tool.
+
+
+What it Does
+ Automates the populating of IP sets from log file contents for an automated dynamic firewall (ADF).
+
+
+Operation
+ Monitors specified log files for status messages typically attributed to nefarious activity to glean the IP addresses and add them to an IP set used for filtering by the firewall (e.g. iptables).
+
+ Once a log file version is rotated beyond the number of log file versions specified to be parsed, the IP addresses previously gleaned from that log file version are removed from the IP set when the script is next run.
+
+
+Benefits
+ Utilizing dynamically generated IP sets with the firewall capabilities to automate the blocking of detected nefarious activity at the network firewall rather than at the application can:
+  1) Reduce system and network resource usage for processing nefarious activity.
+  2) Reduce log file size and clutter (log spam) so the logs are more manageable and efficient for gathering legitimate information.
+  3) Aid in fending off certain nefarious activities and attacks.
+
+
+Development System
+ CentOS 7.6.1810
+ Kernel: Linux 3.10.0-957.5.1.el7.centos.plus.x86_64
+ GNU bash, version 4.2.46(2)-release (x86_64-redhat-linux-gnu)
+ IP Set v6.38
+ IP Tables v1.4.21
+ Postfix 2.10.1
+ BIND 9.9.4
+
+
+Commands Used
+ Built-in: declare/typeset/local, echo, exit, printf
+ External: awk, case, cat, clear, date, cmp, grep, mkdir, rm, sort, uniq
