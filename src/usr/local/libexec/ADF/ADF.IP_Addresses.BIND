@@ -97,56 +97,6 @@ Log_Set_Type_Scrape() {
 }
 
 
-# Display Syntax Info
-Syntax_Info_Display() {
-
-	echo ""
-	echo "$0"
-	echo ""
-	echo "Version: $Version Date: $Date"
-	echo ""
-}
-
-
-# Process Command Line & Check Syntax
-Process_Command_Line_Syntax_Check() {
-
-	case "$1" in
-	'')
-#		if [ "${#@}" -eq "0" ]; then
-			# Check log file time to see if need to continue.
-			# No need to run if log file has not been updated since last run.
-			# To force a run uncomment the following touch command, or run from command line (replace variables with literal dir/filename string).
-			#touch -m "$LOG_FILES_DIR$LOG_FILE_NAME"	# (for dev & debug)
-
-			for LOG_SET in "${LOG_SETS[@]}"
-			do
-				LOG_SET=($LOG_SET)				# Convert string to array (space delimited)
-				LOG_FILE_NAME=${LOG_SET[0]}
-
-				if [ -f "$LOG_FILES_DIR$LOG_FILE_NAME" ] && [ -f "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" ]; then
-					if  [ $(date -r "$LOG_FILES_DIR$LOG_FILE_NAME" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ] || \
-					    [ $(date -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ]; then
-						RUN
-						break
-					fi
-				else
-					RUN
-					break
-				fi
-			done
-
-#			RUN		# Force it to run!	# (for dev & debug)
-
-#		else Syntax_Info_Display
-#		fi
-		;;
-	*)
-		Syntax_Info_Display
-	esac
-}
-
-
 DIR="${BASH_SOURCE%/*}"
 #if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 . "$DIR/ADF.IP_Addresses.Common.sh"
