@@ -113,19 +113,20 @@ RUN() {
 		LOG_FILE_NAME=${LOG_SET[0]}
 		NUM_LOG_FILE_VERSIONS=${LOG_SET[1]}
 		TYPES_PREFIX=${LOG_SET[2]}
+		LOG_SET_CATEGORY=${LOG_SET[3]}
+		TYPES_NAME=${LOG_SET[4]}
 
-		TYPES_TMP=(${LOG_SET[3]//;/ })
-
-		for TYPE in ${TYPES_TMP[@]}
+		# Construct the log set types array.
+		TYPES_TMP=$TYPES_NAME[@]
+		for TYPE in "${!TYPES_TMP}"
 		do
-			TYPE=(${TYPE//,/ })
+			TYPE=($TYPE)				# Convert string to array (space delimited)
 			TYPES+=( "${TYPE[0]} ${TYPE[1]} ${TYPE[2]} ${TYPE[3]}" )
-
-			CATEGORY=${TYPE[0]}
 		done
 		unset TYPES_TMP
 
-		Common_Scrape_RegEx_Name=$CATEGORY"_Scrape_RegEx"
+		# The log set common RegEx for what content to get from the log file versions.
+		Common_Scrape_RegEx_Name=$LOG_SET_CATEGORY"_Scrape_RegEx"
 		Common_Scrape_RegEx=${!Common_Scrape_RegEx_Name}
 
 		GET_LOG_SET_FILES				#    Get the log set file versions.

@@ -25,15 +25,11 @@ System_Config_App_Specific() {
 	# Script to create/apply/update the IP set (full absolute path).
 	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
 
-	# Definitions for regular expressions of what to include.  Such as NOQUEUE reject types.
-	# Array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in space delimited double quoted sets.
-	TYPES_MX='MX,RBL,1,DROP;MX,PTR,3,DROP;MX,HOSTNAME,3,DROP;MX,RELAY,3,DROP;MX,HELO,6,DROP;MX,RHSBL,2,DROP;MX,SPF_HELO,6,DROP;MX,SPF_FROM,3,RETURN;MX,PermBlok,1,DROP'
-	TYPES_MSA='MSA,RATE_LIMIT,1,DROP'
-
 	# Array of log file sets to use.
-	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, TYPES_VAR (space delimited double quoted sets).
-	LOG_SETS[0]="postfix-mx 5 SMTP $TYPES_MX"
-	LOG_SETS[1]="postfix-msa 5 SMTP $TYPES_MSA"
+	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name (space delimited).
+	unset LOG_SETS
+	LOG_SETS[1]="postfix-mx 5 SMTP MX TYPES_MX"
+	LOG_SETS[2]="postfix-msa 5 SMTP MSA TYPES_MSA"
 
 	# Note: Number of log file versions to scrape:
 	# e.g. value of 2 for current log file plus *.(0|1) log file.
@@ -42,6 +38,22 @@ System_Config_App_Specific() {
 	# However initially it may be best to scrape only the current log file to keep the data set smaller.
 	# Then once the size of log files is reduced, increase the number of log files being scraped.
 	# Another approach would be to begin with a fresh set of log files.
+
+	# Definitions for regular expressions of what to include.  Such as NOQUEUE reject types.
+	# Array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION (space delimited).
+	unset TYPES_MX
+	TYPES_MX[1]='MX RBL 1 DROP'
+	TYPES_MX[2]='MX PTR 3 DROP'
+	TYPES_MX[3]='MX HOSTNAME 3 DROP'
+	TYPES_MX[4]='MX RELAY 3 DROP'
+	TYPES_MX[5]='MX HELO 6 DROP'
+	TYPES_MX[6]='MX RHSBL 2 DROP'
+	TYPES_MX[7]='MX SPF_HELO 6 DROP'
+	TYPES_MX[8]='MX SPF_FROM 3 RETURN'
+	TYPES_MX[9]='MX PermBlok 1 DROP'
+
+	unset TYPES_MSA
+	TYPES_MSA[1]='MSA RATE_LIMIT 1 DROP'
 
 # Postfix Specific
 	# Additional items that will be used to identify lines to scrape from log files.
