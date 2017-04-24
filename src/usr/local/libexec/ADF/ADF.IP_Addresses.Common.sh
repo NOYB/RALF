@@ -116,23 +116,17 @@ RUN() {
 		LOG_SET_CATEGORY=${LOG_SET[3]}
 		TYPES_NAME=${LOG_SET[4]}
 
-		# Construct the log set types array.
-		TYPES_TMP=$TYPES_NAME[@]
-		for TYPE in "${!TYPES_TMP}"
-		do
-			TYPE=($TYPE)				# Convert string to array (space delimited)
-			TYPES+=( "${TYPE[0]} ${TYPE[1]} ${TYPE[2]} ${TYPE[3]}" )
-		done
-		unset TYPES_TMP
+		# Get the log set types array.
+		TYPES_NAME_TMP=$TYPES_NAME[@]
+		TYPES=("${!TYPES_NAME_TMP}")
 
-		# The log set common RegEx for what content to get from the log file versions.
+		# Get the log set common RegEx for what content to use from the log file versions.
 		Common_Scrape_RegEx_Name=$LOG_SET_CATEGORY"_Scrape_RegEx"
 		Common_Scrape_RegEx=${!Common_Scrape_RegEx_Name}
 
 		GET_LOG_SET_FILES				#    Get the log set file versions.
 		SCRAPE_LOG_SET_FILES			# Scrape the log set file versions.
 		SCRAPE_LOG_SET_TYPES			# Scrape the log set for the defined types.
-		unset TYPES
 	done
 
 	Finish								# Clean up and call the IP set script.
