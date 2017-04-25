@@ -233,7 +233,7 @@ Log_Set_Type_Finish() {
 	# 1) awk - Scrape specified type log file for entries using awk with IPv4_RegEx regular expression and output (print) desired fields (source IP address).
 	printf "%s\n" "# $CHAIN (source addresses with $COUNT or more reject hits)" >>"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
 	cat "$FILE_NAME_TYPE_LOG" \
-	|awk --posix -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v COUNT=$COUNT -v IP_FIELD=$IP_FIELD '{ if (($1 >= COUNT) && ($IP_FIELD ~ IPv4_RegEx)) print ($IP_FIELD) }' \
+	|awk --posix -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v COUNT=$COUNT -v IPv4_Addr_FIELD=$IPv4_Addr_FIELD '{ if (($1 >= COUNT) && ($IPv4_Addr_FIELD ~ IPv4_RegEx)) print ($IPv4_Addr_FIELD) }' \
 	|sort -V |uniq >>"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
 }
 

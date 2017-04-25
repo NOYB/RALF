@@ -132,28 +132,21 @@ Log_Set_Type_Scrape() {
 		# echo 
 		# echo "$CATEGORY $TYPENAME IP Addresses Log"
 		# 1) awk - Scrape log file for entries of interest using awk with Log_RegEx regular expression and output (print) desired fields (month, day, time, IP address).
-		# 2) sort - Sort in reverse order by IP address, day, and time fields (newest first).
-		# 3) uniq - Remove duplicate lines without comparing the first 3 fields (-f skip fields) and prefix lines with count of occurrences (duplicates plus original).
+		# 2) sort - Sort in reverse order by IP address, date, and time fields (newest first).
+		# 3) uniq - Remove duplicate IP address lines (-f 0 skip no fields; start with first field/column; -w 18 compare only IP address field/column width) and prefix lines with count of occurrences (duplicates plus original).
 		# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
 		# 5) Save results to file for later use.
 		cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
-		|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v CATEGORY="$CATEGORY" -v TYPENAME="$TYPENAME" \
+		|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" \
 		'{ if ($0 ~ Log_RegEx) { \
-		MONTH=$1; DAY=$2; TIME=$3; \
 		match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
-		match($0,/[[:alpha:]]+:.*$/); INFO=substr($0,RSTART,RLENGTH); \
-		INFO=$12
-		if ((TYPENAME == "HELO") || (TYPENAME == "SPF_HELO")) INFO=$12"\t"$NF; \
-		if (TYPENAME == "SPF_FROM") INFO=$12"\t"$(NF-2); \
-		if (TYPENAME == "RBL") INFO=$12"\t"$26; \
-		if ((CATEGORY == "MSA") && (TYPENAME == "RATE_LIMIT")) { match($0,/[[:alpha:]]+:.*?:/); INFO=substr($0,RSTART,RLENGTH); } \
-		printf "%-3s %2s %-8s %-18s %s\n", MONTH, DAY, TIME, IPv4_Addr, INFO } }' \
-		|sort -b -k 4,4 -k 1,1Mr -k 2,2nr -k 3,3r \
-		|uniq -c -f 3 \
-		|sort -b -k 2,2M -k 3,3n -k 4,4 -k 5,5n \
+		printf "%-18s %s\n", IPv4_Addr, $0 } }' \
+		|sort -b -k 1b,1bV -k 2b,2bMr -k 3b,3bnr -k 4b,4br \
+		|uniq -c -f 0 -w 18 \
+		|sort -b -k 3b,3bM -k 4b,4bn -k 5b,5b -k 2b,2bV \
 		>"$FILE_NAME_TYPE_LOG"
 
-		IP_FIELD='5'	# Log_Set_Type_Finish() needs the IP address field number.
+		IPv4_Addr_FIELD='2'	# Log_Set_Type_Finish() needs the IP address field number.
 }
 
 
