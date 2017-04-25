@@ -227,6 +227,27 @@ SCRAPE_LOG_SET_TYPES() {
 }
 
 
+Log_Set_Type_Scrape() {
+	# Scrape Log Files for Entries to Include
+	# printf "\n%s\n" "$CATEGORY $TYPENAME IP Addresses Log"
+	# 1) awk - Scrape log file for entries of interest using awk with Log_RegEx regular expression and output (print) desired fields (month, day, time, IP address).
+	# 2) sort - Sort in reverse order by IP address, date, and time fields (newest first).
+	# 3) uniq - Remove duplicate IP address lines (-f 0 skip no fields; start with first field/column; -w 18 compare only IP address field/column width) and prefix lines with count of occurrences (duplicates plus original).
+	# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
+	# 5) Save results to file for later use.
+	local LOG_SET_TYPE_SCRAPE=''
+	LOG_SET_TYPE_SCRAPE=$(cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
+	|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" \
+	'{ if ($0 ~ Log_RegEx) { \
+	match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
+	printf "%-18s %s\n", IPv4_Addr, $0 } }')
+
+	Log_Set_Type_Scrape_Unique "$LOG_SET_TYPE_SCRAPE"		# Call the app specific sort and unique function.
+
+	IPv4_Addr_FIELD='2'	# Log_Set_Type_Finish() needs the IP address field (column) number.
+}
+
+
 Log_Set_Type_Finish() {
 	# Just need to update the *.ADF.IP_Addresses.DROP file when there are changes.
 	# Create ADF DROP list file containing only IP addresses from scraped log files.
