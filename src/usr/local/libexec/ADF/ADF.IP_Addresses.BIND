@@ -90,13 +90,19 @@ Log_Set_Type_Scrape() {
 		# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
 		# 5) Save results to file for later use.
 		cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
-		|awk --posix -F "[][]| +|#" -v Log_RegEx="$Log_RegEx_2Esc" -v CATEGORY="$CATEGORY" -v TYPENAME="$TYPENAME" '{ if ($0 ~ Log_RegEx) { printf $1 " " $2 " " $3 " " $4 " " $5 " " $6 " " $8 " " $9 " " $10 " " $11 " " $12; for (i=13;i<=NF;i++) printf " %s", $i; print "" }}' \
-		|sort -b -k 6,6 -k 1.8b,1.11br -k 1.4b,1.6bMr -k 1.1b,1.2bnr -k 2r,2r -k 3,3 -k 4,4 \
-		|uniq -c -f 5 \
-		|sort -b -k 2.8b,2.11b -k 2.4b,2.6b -k 2.1b,2.2bn -k 3,3 -k 4,4 -k 5,5 \
+		|awk --posix -F "[][]| +|#" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v CATEGORY="$CATEGORY" -v TYPENAME="$TYPENAME" \
+		'{ if ($0 ~ Log_RegEx) { \
+		$7=""
+		DATE=$1; TIME=$2; \
+		match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
+		match($0,/[[:alpha:]]+:.*$/); INFO=substr($0,RSTART,RLENGTH); \
+		printf "%s %s %-18s %s\n", DATE, TIME, IPv4_Addr, INFO; } }'\
+ 		|sort -b -k 3,3 -k 1.8b,1.11br -k 1.4b,1.6bMr -k 1.1b,1.2bnr -k 2b,2br -k 4,4 -k 5,5 \
+		|uniq -c -f 2 \
+		|sort -b -k 2.8b,2.11b -k 2.4b,2.6bM -k 2.1b,2.2bn -k 3,3 -k 4,4 -k 5,5 \
 		>"$FILE_NAME_TYPE_LOG"
 
-		IP_FIELD='7'	# Log_Set_Type_Finish() needs the IP address field number.
+		IP_FIELD='4'	# Log_Set_Type_Finish() needs the IP address field number.
 }
 
 
