@@ -170,9 +170,8 @@ EOT
 SCRAPE_LOG_SET_FILES() {
 	# Scrape the log file versions for matching entries and output to file for repetitive use by each type.
 
-	# Clear out previous contents - Start fresh with empty file
-	printf "" >"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
-	printf "" >"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
+	# Clear out previous contents - Start fresh with empty file.  Override noclobber (>|).
+	printf "" >|"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
 
 	# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
 	Common_Scrape_RegEx_2Esc=${Common_Scrape_RegEx//\\/\\\\}
@@ -249,37 +248,58 @@ Log_Set_Type_Scrape() {
 
 
 Log_Set_Type_Finish() {
-	# Just need to update the *.ADF.IP_Addresses.DROP file when there are changes.
-	# Create ADF DROP list file containing only IP addresses from scraped log files.
+	# Create ADF DROP list containing only IP addresses from scraped log files.
 	# 1) awk - Scrape specified type log file for entries using awk with IPv4_RegEx regular expression and output (print) desired fields (source IP address).
-	printf "%s\n" "# $CHAIN (source addresses with $COUNT or more reject hits)" >>"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
-	cat "$FILE_NAME_TYPE_LOG" \
+
+	local Log_Set_Type_Header=''
+	Log_Set_Type_Header+="# $CHAIN (source addresses with $COUNT or more reject hits)"
+	Log_Set_Type_Header+=$'\n'					# Add a newline to log set type header.
+
+	local Log_Set_Type_IP_Addresses=''
+	Log_Set_Type_IP_Addresses=$(cat "$FILE_NAME_TYPE_LOG" \
 	|awk --posix -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v COUNT=$COUNT -v IPv4_Addr_FIELD=$IPv4_Addr_FIELD '{ if (($1 >= COUNT) && ($IPv4_Addr_FIELD ~ IPv4_RegEx)) print ($IPv4_Addr_FIELD) }' \
-	|sort -V |uniq >>"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
+	|sort -V |uniq)
+
+	if [ "$Log_Set_Type_IP_Addresses" ]; then
+		Log_Set_Type_IP_Addresses+=$'\n'		# Add a newline at end of each log set type.
+	fi
+
+	Log_Set_Type_IP_Addresses_new+="$Log_Set_Type_Header"
+	Log_Set_Type_IP_Addresses_new+="$Log_Set_Type_IP_Addresses"
 }
 
 
 Log_Set_Finish() {
-	if !(cmp -s "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"); then
-		mv "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"
+	# Only need to update the *.ADF.IP_Addresses.DROP file when there are changes.
+	if [ -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP" ]; then
+		Log_Set_Type_IP_Addresses_old="$(<"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP")"
+		Log_Set_Type_IP_Addresses_old+=$'\n'		# Restore ending empty newline at EOF.
 	fi
 
-	if [ -f "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp" ]; then
-		rm "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP.tmp"
+	if [ "$Log_Set_Type_IP_Addresses_new" != "$Log_Set_Type_IP_Addresses_old" ]; then
+		printf "%s" "$Log_Set_Type_IP_Addresses_new" >"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"
 	fi
 
-	cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP" >>"$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP.tmp"
+	Log_Set_IP_Addresses_new+="$Log_Set_Type_IP_Addresses_new"
+
+	unset Log_Set_Type_IP_Addresses_old
+	unset Log_Set_Type_IP_Addresses_new
 }
 
 
 Finish() {
-	if !(cmp -s "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP.tmp" "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"); then
-		mv "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP.tmp" "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"
+	# Only need to update the *.ADF.IP_Addresses.$Service.DROP file when there are changes.
+	if [ -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP" ]; then
+		Log_Set_IP_Addresses_old="$(<"$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP")"
+		Log_Set_IP_Addresses_old+=$'\n'				# Restore ending empty newline at EOF.
 	fi
 
-	if [ -f "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP.tmp" ]; then
-		rm "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP.tmp"
+	if [ "$Log_Set_IP_Addresses_new" != "$Log_Set_IP_Addresses_old" ]; then
+		printf "%s" "$Log_Set_IP_Addresses_new" >"$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"
 	fi
+
+	unset Log_Set_IP_Addresses_old
+	unset Log_Set_IP_Addresses_new
 
 	"${IPSET_SCRIPT[@]}"
 }
