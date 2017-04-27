@@ -170,18 +170,18 @@ EOT
 SCRAPE_LOG_SET_FILES() {
 	# Scrape the log file versions for matching entries and output to file for repetitive use by each type.
 
-	# Clear out previous contents - Start fresh with empty file.  Override noclobber (>|).
-	printf "" >|"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
-
 	# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
 	Common_Scrape_RegEx_2Esc=${Common_Scrape_RegEx//\\/\\\\}
 
 	for LOG_FILE in "${LOG_FILES[@]}"
 	do
-		cat "$LOG_FILE" \
-		|awk --posix -F "[][ ]" -v Log_RegEx="$Common_Scrape_RegEx_2Esc" '{ if ($0 ~ Log_RegEx) print $0 }' \
-		>>"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
+		Scrape_Log_Set_Files+=$(cat "$LOG_FILE" \
+		|awk --posix -F "[][ ]" -v Log_RegEx="$Common_Scrape_RegEx_2Esc" '{ if ($0 ~ Log_RegEx) print $0 }')
+		Scrape_Log_Set_Files+=$'\n'		# Add a newline at end of each log file version.
 	done
+
+	File_Update "$Scrape_Log_Set_Files" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
+	unset Scrape_Log_Set_Files
 
 #		|awk --posix -F "[][ ]" -v Log_RegEx="$NOQUEUE_Reject_RegEx" '{ if ($0 ~ Log_RegEx) print $0 }' \
 #		|awk --posix -F "[][ ]" -v Log_RegEx="$NOQUEUE_Reject_RegEx" -v Current_Year=$(date +%Y) -v Current_Month=$(date +%m) -v Months_Abbrs="Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec" ' { if ($0 ~ Log_RegEx) { if ( (index(Months_Abbrs,$1)+3)/4 > Current_Month) Log_Year--; else Log_Year = Current_Year; print Log_Year " " $0 } }'
@@ -241,7 +241,10 @@ Log_Set_Type_Scrape() {
 	match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
 	printf "%-18s %s\n", IPv4_Addr, $0 } }')
 
-	Log_Set_Type_Scrape_Unique "$LOG_SET_TYPE_SCRAPE"		# Call the app specific sort and unique function.
+	local Log_Set_Type_IP_Addresses=''
+	Log_Set_Type_IP_Addresses=$(Log_Set_Type_Scrape_Unique "$LOG_SET_TYPE_SCRAPE")		# Call the app specific sort and unique function.
+
+	File_Update "$Log_Set_Type_IP_Addresses" "$FILE_NAME_TYPE_LOG"
 
 	IPv4_Addr_FIELD='2'	# Log_Set_Type_Finish() needs the IP address field (column) number.
 }
@@ -271,35 +274,79 @@ Log_Set_Type_Finish() {
 
 Log_Set_Finish() {
 	# Only need to update the *.ADF.IP_Addresses.DROP file when there are changes.
-	if [ -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP" ]; then
-		Log_Set_Type_IP_Addresses_old="$(<"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP")"
-		Log_Set_Type_IP_Addresses_old+=$'\n'		# Restore ending empty newline at EOF.
-	fi
 
-	if [ "$Log_Set_Type_IP_Addresses_new" != "$Log_Set_Type_IP_Addresses_old" ]; then
-		printf "%s" "$Log_Set_Type_IP_Addresses_new" >"$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"
-	fi
+	File_Update "$Log_Set_Type_IP_Addresses_new" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"
 
 	Log_Set_IP_Addresses_new+="$Log_Set_Type_IP_Addresses_new"
 
-	unset Log_Set_Type_IP_Addresses_old
 	unset Log_Set_Type_IP_Addresses_new
 }
 
 
 Finish() {
 	# Only need to update the *.ADF.IP_Addresses.$Service.DROP file when there are changes.
-	if [ -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP" ]; then
-		Log_Set_IP_Addresses_old="$(<"$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP")"
-		Log_Set_IP_Addresses_old+=$'\n'				# Restore ending empty newline at EOF.
-	fi
 
-	if [ "$Log_Set_IP_Addresses_new" != "$Log_Set_IP_Addresses_old" ]; then
-		printf "%s" "$Log_Set_IP_Addresses_new" >"$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"
-	fi
+	File_Update "$Log_Set_IP_Addresses_new" "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"
 
-	unset Log_Set_IP_Addresses_old
 	unset Log_Set_IP_Addresses_new
 
 	"${IPSET_SCRIPT[@]}"
+}
+
+
+File_Update() {
+	local str_content="$1"
+	local file_name="$2"
+	local file_content=''
+
+	str_content=$(trim "$str_content" $'\n')		# Strip leading & trailing new line.
+
+	# Get contents of the *.ADF.IP_Addresses.* file and update if there are changes.  Create if not exist.
+	if [ -r "$file_name" ]; then
+		file_content="$(<"$file_name")"
+		file_content=$(trim "$file_content" $'\n')	# Strip leading & trailing new line.
+
+		if [ "$str_content" != "$file_content" ]; then
+			printf "%s" "$str_content" >"$file_name"
+		fi
+	else
+		printf "%s" "$str_content" >"$file_name"
+	fi
+}
+
+
+# Strip leading white space (new line inclusive).
+ltrim(){
+	local trim_chrs="[:space:]"
+
+	if [ "$2" ]; then
+		trim_chrs="$2"
+	fi
+
+	[[ "$1" =~ ^["$trim_chrs"]*(.*[^"$trim_chrs"]) ]]
+	printf "%s" "${BASH_REMATCH[1]}"
+}
+
+# Strip trailing white space (new line inclusive).
+rtrim(){
+	local trim_chrs="[:space:]"
+
+	if [ "$2" ]; then
+		trim_chrs="$2"
+	fi
+
+	[[ "$1" =~ ^(.*[^"$trim_chrs"])["$trim_chrs"]*$ ]]
+	printf "%s" "${BASH_REMATCH[1]}"
+}
+
+# Strip leading and trailing white space (new line inclusive).
+trim(){
+	local trim_chrs="[:space:]"
+
+	if [ "$2" ]; then
+		trim_chrs="$2"
+	fi
+
+	[[ "$1" =~ ^["$trim_chrs"]*(.*[^"$trim_chrs"])["$trim_chrs"]*$ ]]
+	printf "%s" "${BASH_REMATCH[1]}"
 }

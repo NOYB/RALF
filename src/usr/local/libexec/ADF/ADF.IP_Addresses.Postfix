@@ -129,11 +129,15 @@ RegEx_Patterns_App_Specific() {
 
 Log_Set_Type_Scrape_Unique() {
 	local LOG_SET_TYPE_SCRAPE="$1"
-	printf "%s" "$LOG_SET_TYPE_SCRAPE" \
+	local Log_Set_Type_IP_Addresses=''
+
+	Log_Set_Type_IP_Addresses=$(printf "%s" "$LOG_SET_TYPE_SCRAPE" \
 	|sort -b -k 1b,1bV -k 2b,2bMr -k 3b,3bnr -k 4b,4br \
 	|uniq -c -f 0 -w 18 \
-	|sort -b -k 3b,3bM -k 4b,4bn -k 5b,5b -k 2b,2bV \
-	>"$FILE_NAME_TYPE_LOG"
+	|sort -b           -k 3b,3bM -k 4b,4bn -k 5b,5b -k 2b,2bV)	# Sort by Date/Time/IP address
+#	|sort -b -k 2b,2bV -k 3b,3bM -k 4b,4bn -k 5b,5b          )	# Sort by IP address/Date/Time
+
+	printf "%s" "${Log_Set_Type_IP_Addresses}"
 }
 
 
