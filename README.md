@@ -31,5 +31,5 @@ See /src/usr/local/libexec/ADF/Manual/
  BIND 9.9.4<br>
 
 #### BASH Commands Used
- Built-in: declare/typeset/local, echo, exit, printf<br>
- External: awk, case, cat, clear, date, cmp, grep, mkdir, rm, sort, uniq<br>
+ Built-in: declare/typeset/local, echo, exit, printf, unset<br>
+ External: awk, case, cat, date, mkdir, sort, uniq<br>

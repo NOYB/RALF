@@ -39,5 +39,5 @@ Development System
 
 
 Commands Used
- Built-in: declare/typeset/local, echo, exit, printf
- External: awk, case, cat, clear, date, cmp, grep, mkdir, rm, sort, uniq
+ Built-in: declare/typeset/local, echo, exit, printf, unset
+ External: awk, case, cat, date, mkdir, sort, uniq

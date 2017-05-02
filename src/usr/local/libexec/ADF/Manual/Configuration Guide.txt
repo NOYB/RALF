@@ -16,28 +16,54 @@ Edit the "System_Config_App_Specific" section to set appropriate parameters for 
 /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
 
 Server_Name - If set this parameter will override the hostname.
-SERVICE_NAME - This is the name of the service.  e.g. "Postfix", or "BIND"
+SERVICE_NAME - This is the name of the service.
+e.g. "Postfix", or "BIND"
 
-ADF_DIR - This is the ADF log directory location.  e.g. "/var/log/ADF/Postfix/", or "/var/log/ADF/BIND/"
-LOG_FILES_DIR - this is the application log files directory location.  e.g. "/var/log/", or "/var/log/postfix/", or "/var/named/data/"
+ADF_DIR - This is the ADF log directory location.
+e.g. "/var/log/ADF/Postfix/", or "/var/log/ADF/BIND/"
 
-IPSET_SCRIPT - This is the script to create/apply/update the IP set.  Must be specified as an array.  e.g. ("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
+LOG_FILES_DIR - this is the application log files directory location.
+e.g. "/var/log/", or "/var/log/postfix/", or "/var/named/data/, or /var/log/maillog/"
 
-LOG_SETS - This is the log sets to be used.  Specified as an array of log set and number of versions to include.  e.g. ("postfix-mx 5"), or ("postfix-mx 5" "postfix-msa 5"), or ("named.run 3"), or ("named.security 3")
+IPSET_SCRIPT - This is the script to create/apply/update the IP set.  Must be specified as an array.
+e.g. ("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
 
-TYPES - This is the definitions for regular expressions of what to include from the log files.
-Specified as an array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in space delimited double quoted sets.
+
+LOG_SETS - This is an array of the log sets to be used.  Specified as an array of log set, number of versions to include, types prefix, log set category, and types array name.
+
+Log sets example for Postfix:
+	LOG_SETS[1]="postfix-mx 5 SMTP MX TYPES_MX"
+	LOG_SETS[2]="postfix-msa 5 SMTP MSA TYPES_MSA"
+
+Log sets example for BIND:
+	LOG_SETS[1]="named.security 5 DNS SECURITY TYPES_SECURITY"
+
+
+TYPES - This is an array of the definitions for regular expressions of what to include from the log files.  Specified as an array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION in space delimited double quoted sets.
+
 The "CATEGORY" and "TYPENAME" fields are combined to form the name of the regular expression to be used for that type.  e.g. MX_RBL_RegEx
-The COUNT field is the number of occurrence matches before including.
+
+The COUNT field is the number of occurrence matches before including in the IP set.
+
 The FIREWALL_ACTION field is only for ADF_MODE_IPTABLES which is currently not implemented.  But the field must be specified.
 
-Types Example for Postfix:
-TYPES=("MX RBL 1 DROP" "MX PTR 3 DROP" "MX HOSTNAME 3 DROP" "MX HELO 6 DROP" "MX RHSBL 2 DROP" "MX SPF_HELO 6 DROP" "MX SPF_FROM 3 RETURN" "MX PermBlok 1 DROP")
-TYPES_PREFIX="SMTP"
+Types example for Postfix:
+	TYPES_MX[1]='MX RBL 1 DROP'
+	TYPES_MX[2]='MX PTR 3 DROP'
+	TYPES_MX[3]='MX HOSTNAME 3 DROP'
+	TYPES_MX[4]='MX RELAY 3 DROP'
+	TYPES_MX[5]='MX HELO 6 DROP'
+	TYPES_MX[6]='MX RHSBL 2 DROP'
+	TYPES_MX[7]='MX SPF_HELO 6 DROP'
+	TYPES_MX[8]='MX SPF_FROM 3 RETURN'
+	TYPES_MX[9]='MX PermBlok 1 DROP'
 
-Types Example for BIND:
-TYPES=("Query Cache 1 DROP")
-TYPES_PREFIX="DNS"
+	TYPES_MSA[1]='MSA RATE_LIMIT 1 DROP'
+
+Types example for BIND:
+	TYPES_SECURITY[1]='Query Cache 1 DROP'
+	TYPES_SECURITY[2]='SECURITY STATIC 1 DROP'
+
 
 Note: Directory parameters require trailing slash.
 
