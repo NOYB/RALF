@@ -54,6 +54,8 @@ System_Config_App_Specific() {
 
 	unset TYPES_MSA
 	TYPES_MSA[1]='MSA RATE_LIMIT 1 DROP'
+	TYPES_MSA[2]='MSA ADDRESS_RESOLUTION 4 DROP'
+	TYPES_MSA[3]='MSA AUTH_FAIL 6 DROP'
 
 # Postfix Specific
 	# Additional items that will be used to identify lines to scrape from log files.
@@ -122,6 +124,8 @@ RegEx_Patterns_App_Specific() {
 	MSA_Prefix_RegEx="^$Month_Abbr_RegEx  ?$Day_RegEx  ?$Time_24_HHMMss_RegEx $Server_Name_RegEx $MSA_Mail_Service_Name_RegEx/$MSA_Mail_Daemon_Name_RegEx\[$Service_Number_RegEx\]: ?"
 
 	MSA_RATE_LIMIT_RegEx="$MSA_Prefix_RegEx.*rate limit exceeded.*$"
+	MSA_ADDRESS_RESOLUTION_RegEx="$MSA_Prefix_RegEx.*warning: hostname .* does not resolve to address.*$"
+	MSA_AUTH_FAIL_RegEx="$MSA_Prefix_RegEx.*warning: unknown\[.*\]: SASL LOGIN authentication failed:.*$"
 
 	MSA_PermBlok_RegEx="$MSA_Prefix_RegEx .*STATIC$"
 }
