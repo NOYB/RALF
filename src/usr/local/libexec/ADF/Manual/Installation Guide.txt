@@ -43,10 +43,12 @@ usr/local/libexec/ADF/Manual/Configuration Guide.txt
 usr/local/libexec/ADF/Manual/Advanced Configuration Guide.txt
 
 usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+usr/local/libexec/ADF/ADF.IP_Addresses.HTTP
 usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
 usr/local/libexec/ADF/ADF.IP_Addresses.Common.sh
 
 usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh
+usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh
 usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh
 
 usr/local/libexec/Block_Lists/Block_Lists_Init.sh

@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# Copyright (c) 2010-2017 Al Stu, All rights reserved.
+
+# Automated Dynamic Firewall - HTTP
+Version="0.0.1"
+Date="Mar 20, 2019"
+
+#
+# Begin - System Config Specific Constants
+#
+
+# Some tweaking of the static non-regex portions of the <CATEGORY>_<TYPENAME>_RegEx variables in the RegEx section below may also be necessary.
+
+System_Config_App_Specific() {
+#	Server_Name="VPS1"			# Overrides the system hostname.
+	SERVICE_NAME="HTTP"
+
+	# Automated Dynamic Firewall directory (with trailing slash)
+	ADF_DIR="/var/log/ADF/HTTP/"
+
+	# Service log directory (with trailing slash)
+	LOG_FILES_DIR="/var/log/httpd/"
+
+	# Script to create/apply/update the IP set (full absolute path).
+	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh")
+
+	# Array of log file sets to use.
+	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name (space delimited).
+	unset LOG_SETS
+	LOG_SETS[1]="error_log 5 HTTP ERROR DENIED"
+
+	# Note: Number of log file versions to scrape:
+	# e.g. value of 2 for current log file plus *.(0|1) log file.
+	# Scraping of at least 2 log files is desirable so that when rotation provides a new empty log file,
+	# the firewall entries from at least the one previous log file will remain in effect.
+	# However initially it may be best to scrape only the current log file to keep the data set smaller.
+	# Then once the size of log files is reduced, increase the number of log files being scraped.
+	# Another approach would be to begin with a fresh set of log files.
+
+	# Definitions for regular expressions of what to include.  Such as Error and/or Denied types.
+	# Array of CATEGORY, TYPENAME, COUNT, and FIREWALL_ACTION (space delimited).
+	unset DENIED
+	DENIED[1]='ERROR LOG 500 DROP'
+	DENIED[2]='NUISANCE STATIC 1 DROP'
+	DENIED[3]='AWSTATS STATIC 1 DROP'
+	DENIED[4]='WEBALIZER STATIC 1 DROP'
+
+# This has not been included in the refactoring and may or may not be in the future.
+#	# Explicit List (array) of Log files to scrape (hint: oldest first order is preferred)
+#	# This is used if NUM_LOG_FILES value is 0
+#	# Examples:
+#	 LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+#	#LOG_FILES=("$LOG_FILES_DIR$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" "$LOG_FILES_DIR$LOG_FILE_NAME.3" "$LOG_FILES_DIR$LOG_FILE_NAME.2" "$LOG_FILES_DIR$LOG_FILE_NAME.1" "$LOG_FILES_DIR$LOG_FILE_NAME")
+}
+
+#
+# End - System Config Specific Constants
+#
+
+
+# Regular Expression (RegEx) Patterns
+RegEx_Patterns_App_Specific() {
+
+	Category="(authz_core|nuisance|awstats|webalizer)"
+	Severity="(error|highrate)"
+
+	   Denied="(AH01630: client denied by server configuration)"
+	 Nuisance="(NUISANCE: client)"
+	  Awstats="(AWSTATS: client)"
+	Webalizer="(WEBALIZER: client)"
+
+	Type="($Denied|$Nuisance|$Awstats|$Webalizer)"
+
+	  ERROR_Scrape_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* $Type.*$"
+
+	       ERROR_LOG_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* AH01630: client denied by server configuration.*$"
+	 NUISANCE_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* NUISANCE: client.* STATIC.*$"
+	  AWSTATS_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* AWSTATS: client.* STATIC.*$"
+	WEBALIZER_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* WEBALIZER: client.* STATIC.*$"
+}
+
+
+Log_Set_Type_Scrape_Unique() {
+	local LOG_SET_TYPE_SCRAPE="$1"
+	local Log_Set_Type_IP_Addresses=''
+
+	Log_Set_Type_IP_Addresses=$(printf "%s" "$LOG_SET_TYPE_SCRAPE" \
+	|sort -b -k 1b,1bV -k 6.9b,6.12bnr -k 6.5b,6.7bMr -k 6.2b,6.3bnr -k 6.14b,6.21br \
+	|uniq -c -f 0 -w 18 \
+	|sort -b           -k 7.9b,7.12bn -k 7.5b,7.7bM -k 7.2b,7.3bn -k 7.14b,7.21b -k 2b,2bV)	# Sort by Date/Time/IP address
+#	|sort -b -k 2b,2bV -k 7.9b,7.12bn -k 7.5b,7.7bM -k 7.2b,7.3bn -k 7.14b,7.21b          )	# Sort by IP address/Date/Time
+
+	printf "%s" "${Log_Set_Type_IP_Addresses}"
+}
+
+
+DIR="${BASH_SOURCE%/*}"
+#if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/ADF.IP_Addresses.Common.sh"
+
+Main $@

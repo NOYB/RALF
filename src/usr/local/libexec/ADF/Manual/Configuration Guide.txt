@@ -13,17 +13,20 @@ This guide is for configuring the Automated Dynamic Firewall (ADF) on CentOS 7.3
 1) Configure ADF to the system.
 Edit the "System_Config_App_Specific" section to set appropriate parameters for the system.
 /usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+/usr/local/libexec/ADF/ADF.IP_Addresses.HTTP
 /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
 
 Server_Name - If set this parameter will override the hostname.
 SERVICE_NAME - This is the name of the service.
-e.g. "Postfix", or "BIND"
+e.g. "Postfix", "BIND" , or HTTP
 
 ADF_DIR - This is the ADF log directory location.
-e.g. "/var/log/ADF/Postfix/", or "/var/log/ADF/BIND/"
+e.g. "/var/log/ADF/Postfix/", "/var/log/ADF/BIND/", or "/var/log/ADF/HTTP/"
 
 LOG_FILES_DIR - this is the application log files directory location.
-e.g. "/var/log/", or "/var/log/postfix/", or "/var/named/data/, or /var/log/maillog/"
+e.g. "/var/log/", or "/var/log/httpd/", or "/var/log/postfix/", or "/var/named/data/, or /var/log/maillog/"
+
+NOTE: httpd log entries must begin with the clients unresolved IP address followed by at least one space.  See Apache log format %a and %h options.
 
 IPSET_SCRIPT - This is the script to create/apply/update the IP set.  Must be specified as an array.
 e.g. ("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
@@ -71,24 +74,29 @@ Note: Directory parameters require trailing slash.
 2) Test and debug the configuration.
 To test and debug run the ADF script.
 /usr/local/libexec/ADF/ADF.IP_Addresses.BIND
+/usr/local/libexec/ADF/ADF.IP_Addresses.HTTP
 /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
 
 2.1) Check log files.
 /var/log/cron
 /var/log/messages
 /var/log/ADF/BIND/*
+/var/log/ADF/HTTP/*
 /var/log/ADF/Postfix/*
 
 2.2) Check for the generated IP block/drop lists.
 /var/db/Block_Lists/ADF_DNS_DROP.txt
+/var/db/Block_Lists/ADF_HTTP_DROP.txt
 /var/db/Block_Lists/ADF_SMTP_DROP.txt
 
 2.3) Check for the generated IP sets.
 /etc/sysconfig/ipset/ADF_DNS_DROP.ipset
+/etc/sysconfig/ipset/ADF_HTTP_DROP.ipset
 /etc/sysconfig/ipset/ADF_SMTP_DROP.ipset
 
 2.4) Check for the loaded IP sets.
 ipset list ADF_DNS_DROP |head
+ipset list ADF_HTTP_DROP |head
 ipset list ADF_SMTP_DROP |head
 
 2.6) Enable the IP sets to load during system boot.
@@ -103,6 +111,7 @@ shutdown -r now
 
 After system has shutdown and rebooted, verify the IP sets loaded.
 ipset list ADF_DNS_DROP |head
+ipset list ADF_HTTP_DROP |head
 ipset list ADF_SMTP_DROP |head
 
 *** It is critical that the IP sets load successfully during boot up.  Otherwise the firewall (iptables) will fail to load.  Leaving the system unprotected. ***
@@ -121,10 +130,13 @@ Example for using the ADF IP sets in the "raw" table.
 :PREROUTING ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :DNS_DROP - [0:0]
+:HTTP_DROP - [0:0]
 :SMTP_DROP - [0:0]
 -A PREROUTING -p udp -m udp --dport 53 -j DNS_DROP
+-A PREROUTING -p tcp -m tcp -m multiport --dports 80,443 -j HTTP_DROP
 -A PREROUTING -p tcp -m tcp -m multiport --dports 25,2525,465,587,993,995 -j SMTP_DROP
 -A DNS_DROP -m set --match-set ADF_DNS_DROP src -j DROP
+-A HTTP_DROP -m set --match-set ADF_HTTP_DROP src -j DROP
 -A SMTP_DROP -m set --match-set ADF_SMTP_DROP src -j DROP
 COMMIT
 
@@ -147,6 +159,9 @@ HOME=/
 # Update the ADF_DNS_DROP IP set every 15 minutes
 */15 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.BIND
 
+# Update the ADF_HTTP_DROP IP set every 20 minutes
+*/20 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.HTTP
+
 # Update the ADF_SMTP_DROP IP set every 3 minutes
 */3 * * * * root /usr/local/libexec/ADF/ADF.IP_Addresses.Postfix
 
@@ -165,6 +180,15 @@ HOME=/
 :msg, regex, "^.*ADF_DNS_DROP" -/var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
 & stop
 
+# Log ADF HTTP CRON job
+:msg, regex, "^.*ADF\.IP_Addresses\.HTTP" -/var/log/ADF/HTTP/ADF.IP_Addresses.HTTP.log
+& stop
+
+# Log ADF_HTTP_DROP IP set update
+#:app-name, isequal, "IPSet" and :msg, regex, "^.*ADF_HTTP_DROP" -/var/log/ADF/HTTP/ADF.IP_Addresses.HTTP.log
+:msg, regex, "^.*ADF_HTTP_DROP" -/var/log/ADF/HTTP/ADF.IP_Addresses.HTTP.log
+& stop
+
 # Log ADF Postfix CRON job
 :msg, regex, "^.*ADF\.IP_Addresses\.Postfix" -/var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
 & stop
@@ -179,6 +203,7 @@ HOME=/
 
 # ADF cron job log file rotation.
 /var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+/var/log/ADF/HTTP/ADF.IP_Addresses.HTTP.log
 /var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
 {
 	daily

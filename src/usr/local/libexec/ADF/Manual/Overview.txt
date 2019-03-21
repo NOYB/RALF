@@ -36,6 +36,7 @@ Development System
  IP Tables v1.4.21
  Postfix 2.10.1
  BIND 9.9.4
+ Apache httpd 2.4.6
 
 
 Commands Used

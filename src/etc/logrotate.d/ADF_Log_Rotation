@@ -1,5 +1,6 @@
 # ADF cron job log file rotation.
 /var/log/ADF/BIND/ADF.IP_Addresses.BIND.log
+/var/log/ADF/HTTP/ADF.IP_Addresses.HTTP.log
 /var/log/ADF/Postfix/ADF.IP_Addresses.Postfix.log
 {
 	daily

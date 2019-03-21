@@ -19,11 +19,14 @@ COMMIT
 :PREROUTING ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :DNS_DROP  - [0:0]
+:HTTP_DROP - [0:0]
 :SMTP_DROP - [0:0]
 #
 -A PREROUTING        -m udp              --dport 53                       -j DNS_DROP
+-A PREROUTING -p tcp -m tcp -m multiport --dports 80,443                  -j HTTP_DROP
 -A PREROUTING -p tcp -m tcp -m multiport --dports 25,2525,465,587,993,995 -j SMTP_DROP
 #
 -A DNS_DROP  -m set --match-set ADF_DNS_DROP  src -j DROP
+-A HTTP_DROP -m set --match-set ADF_HTTP_DROP src -j DROP
 -A SMTP_DROP -m set --match-set ADF_SMTP_DROP src -j DROP
 COMMIT
