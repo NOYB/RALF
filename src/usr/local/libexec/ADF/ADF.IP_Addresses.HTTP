@@ -26,9 +26,12 @@ System_Config_App_Specific() {
 	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh")
 
 	# Array of log file sets to use.
-	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name (space delimited).
+	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name, INSTANCE (sub dir(s); optional) (space delimited).
 	unset LOG_SETS
 	LOG_SETS[1]="error_log 5 HTTP ERROR DENIED"
+	LOG_SETS[2]="access_log 5 HTTP__default_ ABUSE SCANNER _default_"
+	LOG_SETS[3]="Instance_1-access.log 5 HTTP_Instance_1 ABUSE SCANNER Instance_1"
+	LOG_SETS[4]="Instance_2-access.log 5 HTTP_Instance_2 ABUSE SCANNER Instance_2"
 
 	# Note: Number of log file versions to scrape:
 	# e.g. value of 2 for current log file plus *.(0|1) log file.
@@ -43,8 +46,16 @@ System_Config_App_Specific() {
 	unset DENIED
 	DENIED[1]='ERROR LOG 500 DROP'
 	DENIED[2]='NUISANCE STATIC 1 DROP'
-	DENIED[3]='AWSTATS STATIC 1 DROP'
-	DENIED[4]='WEBALIZER STATIC 1 DROP'
+
+	unset SCANNER
+	SCANNER[1]='BAIDUSPIDER LOG 1 DROP'
+	SCANNER[2]='AWSTATS LOG 2 DROP'
+	SCANNER[3]='WEBALIZER LOG 2 DROP'
+	SCANNER[4]='WP LOG 1 DROP'
+	SCANNER[5]='BAIDUSPIDER STATIC 1 DROP'
+	SCANNER[6]='AWSTATS STATIC 1 DROP'
+	SCANNER[7]='WEBALIZER STATIC 1 DROP'
+	SCANNER[8]='WP STATIC 1 DROP'
 
 # This has not been included in the refactoring and may or may not be in the future.
 #	# Explicit List (array) of Log files to scrape (hint: oldest first order is preferred)
@@ -64,13 +75,11 @@ System_Config_App_Specific() {
 # Regular Expression (RegEx) Patterns
 RegEx_Patterns_App_Specific() {
 
-	Category="(authz_core|nuisance|awstats|webalizer)"
+	Category="(authz_core|nuisance)"
 	Severity="(error|highrate)"
 
 	   Denied="(AH01630: client denied by server configuration)"
 	 Nuisance="(NUISANCE: client)"
-	  Awstats="(AWSTATS: client)"
-	Webalizer="(WEBALIZER: client)"
 
 	Type="($Denied|$Nuisance|$Awstats|$Webalizer)"
 
@@ -78,14 +87,44 @@ RegEx_Patterns_App_Specific() {
 
 	       ERROR_LOG_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* AH01630: client denied by server configuration.*$"
 	 NUISANCE_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* NUISANCE: client.* STATIC.*$"
-	  AWSTATS_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* AWSTATS: client.* STATIC.*$"
-	WEBALIZER_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client $IPv4_RegEx($CIDR_RegEx)?(:[0-9]+)?\].* WEBALIZER: client.* STATIC.*$"
+
+	Category="(301|404|410)"
+
+	  Awstats="(awstats)"
+	Webalizer="(webalizer)"
+	       WP="(wp-admin|wp-login|wp-includes|wp-content|wp-config)"
+  Baiduspider="(Baiduspider)"
+
+	Type="($Awstats|$Webalizer|$WP|$Baiduspider)"
+
+	    ABUSE_Scrape_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*($Type.* $Category)|( $Category .*$Type.*) .*$"
+
+         AWSTATS_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*awstats.*$"
+       WEBALIZER_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*webalizer.*$"
+              WP_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*wp-.*$"
+     BAIDUSPIDER_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*Baiduspider.*$"
+
+	  AWSTATS_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*awstats.* STATIC.*$"
+	WEBALIZER_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*webalizer.* STATIC.*$"
+	       WP_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*wp-.* STATIC.*$"
+  BAIDUSPIDER_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*Baiduspider.* STATIC.*$"
 }
 
 
 Log_Set_Type_Scrape_Unique() {
 	local LOG_SET_TYPE_SCRAPE="$1"
 	local Log_Set_Type_IP_Addresses=''
+
+	# Remove extra IP/CIDR from STATIC entries
+	LOG_SET_TYPE_SCRAPE=$( \
+	printf "%s" "$LOG_SET_TYPE_SCRAPE" \
+	|awk --posix -F "[][]| +" \
+	-v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx? +\t+" \
+	'{ \
+		gsub(IPv4_RegEx,""); \
+		print; \
+	}' \
+	)
 
 	Log_Set_Type_IP_Addresses=$(printf "%s" "$LOG_SET_TYPE_SCRAPE" \
 	|sort -b -k 1b,1bV -k 6.9b,6.12bnr -k 6.5b,6.7bMr -k 6.2b,6.3bnr -k 6.14b,6.21br \

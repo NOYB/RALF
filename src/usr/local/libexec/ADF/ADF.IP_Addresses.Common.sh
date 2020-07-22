@@ -78,16 +78,21 @@ Update_Check() {
 	# Check log file time to see if need to continue.
 	# No need to run if log file has not been updated since last run.
 	# To force a run uncomment the following touch command, or run from command line (replace variables with literal dir/filename string).
-	#touch -m "$LOG_FILES_DIR$LOG_FILE_NAME"	# (for dev & debug)
+	#touch -m "${LOG_FILES_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}"	# (for dev & debug)
 
 	for LOG_SET in "${LOG_SETS[@]}"
 	do
 		LOG_SET=($LOG_SET)				# Convert string to array (space delimited)
 		LOG_FILE_NAME=${LOG_SET[0]}
+		if [ ${#LOG_SET[@]} -eq 6 ]; then
+			INSTANCE_DIR=${LOG_SET[5]}"/"
+		else
+			INSTANCE_DIR=""
+		fi
 
-		if [ -f "$LOG_FILES_DIR$LOG_FILE_NAME" ] && [ -f "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" ]; then
-			if  [ $(date -r "$LOG_FILES_DIR$LOG_FILE_NAME" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ] || \
-			    [ $(date -r "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" +%Y%m%d%H%M%S) -ge $(date -r "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ]; then
+		if [ -f "${LOG_FILES_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}" ] && [ -f "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log" ]; then
+			if  [ $(date -r "${LOG_FILES_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}" +%Y%m%d%H%M%S) -ge $(date -r "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ] || \
+			    [ $(date -r "${ADF_DIR}${INSTANCE_DIR}ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" +%Y%m%d%H%M%S) -ge $(date -r "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log" +%Y%m%d%H%M%S) ]; then
 				RUN
 				break
 			fi
@@ -115,6 +120,11 @@ RUN() {
 		TYPES_PREFIX=${LOG_SET[2]}
 		LOG_SET_CATEGORY=${LOG_SET[3]}
 		TYPES_NAME=${LOG_SET[4]}
+		if [ ${#LOG_SET[@]} -eq 6 ]; then
+			INSTANCE_DIR=${LOG_SET[5]}"/"
+		else
+			INSTANCE_DIR=""
+		fi
 
 		# Get the log set types array.
 		TYPES_NAME_TMP=$TYPES_NAME[@]
@@ -139,7 +149,7 @@ GET_LOG_SET_FILES() {
 	unset LOG_FILES_tmp
 
 	local -i i=0
-	for FILE in "$LOG_FILES_DIR$LOG_FILE_NAME"*
+	for FILE in `ls -v "$LOG_FILES_DIR$INSTANCE_DIR$LOG_FILE_NAME"*`
 	do
 		if [ $i -lt $NUM_LOG_FILE_VERSIONS ]; then
 			LOG_FILES_tmp[$i]=$FILE
@@ -150,15 +160,15 @@ GET_LOG_SET_FILES() {
 	done
 
 	# Include the permanent list file (create first if doesn't exists)
-	if [ ! -e "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT" ]; then
-		mkdir -p "$ADF_DIR"
-		cat << EOT >> "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.$PERM_BLOCK_FILE_EXT"
+	if [ ! -e "${ADF_DIR}${INSTANCE_DIR}ADF.IP_Addresses.${SERVICE_NAME}.${PERM_BLOCK_FILE_EXT}" ]; then
+		mkdir -p "${ADF_DIR}${INSTANCE_DIR}"
+		cat << EOT >> "${ADF_DIR}${INSTANCE_DIR}ADF.IP_Addresses.${SERVICE_NAME}.${PERM_BLOCK_FILE_EXT}"
 Place (cut/paste) into this file, log file entries that are to be permanently included.
 To use as a separate "static" type, append a key such as " STATIC" to an entry, and add a matching type to the "TYPES" array, ex "<category> STATIC 1 DROP", and a matching regular expression for the type.
 EOT
 	fi
 
-	LOG_FILES_tmp[$i]=$ADF_DIR"ADF.IP_Addresses."$SERVICE_NAME"."$PERM_BLOCK_FILE_EXT
+	LOG_FILES_tmp[$i]=$ADF_DIR$INSTANCE_DIR"ADF.IP_Addresses."$SERVICE_NAME"."$PERM_BLOCK_FILE_EXT
 
 	# Reverse the array of log files (put in oldest first order)
 	for (( i=0, idx=${#LOG_FILES_tmp[@]}-1 ; idx>=0 ; i++, idx-- )) ; do
@@ -180,7 +190,7 @@ SCRAPE_LOG_SET_FILES() {
 		Scrape_Log_Set_Files+=$'\n'		# Add a newline at end of each log file version.
 	done
 
-	File_Update "$Scrape_Log_Set_Files" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log"
+	File_Update "$Scrape_Log_Set_Files" "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log"
 	unset Scrape_Log_Set_Files
 
 #		|awk --posix -F "[][ ]" -v Log_RegEx="$NOQUEUE_Reject_RegEx" '{ if ($0 ~ Log_RegEx) print $0 }' \
@@ -210,7 +220,7 @@ SCRAPE_LOG_SET_TYPES() {
 		IPv4_RegEx_2Esc=${IPv4_RegEx//\\/\\\\}
 
 		# Status & Working Files
-		FILE_NAME_TYPE_LOG=$ADF_DIR$LOG_FILE_NAME"."$CATEGORY"_"$TYPENAME".IP_Addresses.Log"
+		FILE_NAME_TYPE_LOG=$ADF_DIR$INSTANCE_DIR$LOG_FILE_NAME"."$CATEGORY"_"$TYPENAME".IP_Addresses.Log"
 
 		Log_Set_Type_Scrape
 
@@ -235,7 +245,7 @@ Log_Set_Type_Scrape() {
 	# 4) sort - Chronologically (oldest first) (iptables insert will result in newest first/top firewall chain rule order).
 	# 5) Save results to file for later use.
 	local LOG_SET_TYPE_SCRAPE=''
-	LOG_SET_TYPE_SCRAPE=$(cat "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.Log" \
+	LOG_SET_TYPE_SCRAPE=$(cat "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log" \
 	|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" \
 	'{ if ($0 ~ Log_RegEx) { \
 	match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
@@ -275,7 +285,7 @@ Log_Set_Type_Finish() {
 Log_Set_Finish() {
 	# Only need to update the *.ADF.IP_Addresses.DROP file when there are changes.
 
-	File_Update "$Log_Set_Type_IP_Addresses_new" "$ADF_DIR$LOG_FILE_NAME.ADF.IP_Addresses.DROP"
+	File_Update "$Log_Set_Type_IP_Addresses_new" "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.DROP"
 
 	Log_Set_IP_Addresses_new+="$Log_Set_Type_IP_Addresses_new"
 
@@ -286,7 +296,7 @@ Log_Set_Finish() {
 Finish() {
 	# Only need to update the *.ADF.IP_Addresses.$Service.DROP file when there are changes.
 
-	File_Update "$Log_Set_IP_Addresses_new" "$ADF_DIR/ADF.IP_Addresses.$SERVICE_NAME.DROP"
+	File_Update "$Log_Set_IP_Addresses_new" "${ADF_DIR}ADF.IP_Addresses.${SERVICE_NAME}.DROP"
 
 	unset Log_Set_IP_Addresses_new
 
