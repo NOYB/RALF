@@ -32,8 +32,10 @@ RegEx_Patterns_Common() {
 	Month_Abbr_RegEx='(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
 	Month_Alpha_RegEx="$Month_Abbr_RegEx|$Month_Name_RegEx"
 
-	IPv4_RegEx='(([01]?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.){3}([01]?[0-9]{1,2}|2[0-4][0-9]|25[0-5])'
-	CIDR_RegEx='(/([12]?[0-9]|[3]?[0-2]))'
+	# IPv4 Regular Expressions
+	IPV4SEG='(25[0-5]|(2[0-4]|1[0-9]|[1-9])?[0-9])'			# doted decimal notation; no leading 0 (octal) or 0x (hexadecimal)
+	IPV4ADDR='(('${IPV4SEG}'\.){3,3}('${IPV4SEG}'){1,1})'
+	IPV4CIDR='(3[0-2]|[12]?[0-9])'
 
 	Server_Name_RegEx=$Server_Name
 }
@@ -217,7 +219,7 @@ SCRAPE_LOG_SET_TYPES() {
 
 		# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
 		Log_RegEx_2Esc=${Log_RegEx//\\/\\\\}
-		IPv4_RegEx_2Esc=${IPv4_RegEx//\\/\\\\}
+		IPV4ADDR_2Esc=${IPV4ADDR//\\/\\\\}
 
 		# Status & Working Files
 		FILE_NAME_TYPE_LOG=$ADF_DIR$INSTANCE_DIR$LOG_FILE_NAME"."$CATEGORY"_"$TYPENAME".IP_Addresses.Log"
@@ -246,10 +248,17 @@ Log_Set_Type_Scrape() {
 	# 5) Save results to file for later use.
 	local LOG_SET_TYPE_SCRAPE=''
 	LOG_SET_TYPE_SCRAPE=$(cat "${ADF_DIR}${INSTANCE_DIR}${LOG_FILE_NAME}.ADF.IP_Addresses.Log" \
-	|awk --posix -F "[][]| +" -v Log_RegEx="$Log_RegEx_2Esc" -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" \
-	'{ if ($0 ~ Log_RegEx) { \
-	match($0,IPv4_RegEx); IPv4_Addr=substr($0,RSTART,RLENGTH); \
-	printf "%-18s %s\n", IPv4_Addr, $0 } }')
+	|awk --posix -F "[][]| +" \
+	-v Log_RegEx="$Log_RegEx_2Esc" \
+	-v IPv4_RegEx="$IPV4ADDR_2Esc(/$IPV4CIDR)?" \
+	'{ \
+		if ($0 ~ Log_RegEx) { \
+			match($0,IPv4_RegEx); \
+			IPv4_Addr=substr($0,RSTART,RLENGTH); \
+			if (IPv4_Addr) {printf "%-18s %s\n", IPv4_Addr, $0} \
+		} \
+	}' \
+	)
 
 	local Log_Set_Type_IP_Addresses=''
 	Log_Set_Type_IP_Addresses=$(Log_Set_Type_Scrape_Unique "$LOG_SET_TYPE_SCRAPE")		# Call the app specific sort and unique function.
@@ -262,7 +271,7 @@ Log_Set_Type_Scrape() {
 
 Log_Set_Type_Finish() {
 	# Create ADF DROP list containing only IP addresses from scraped log files.
-	# 1) awk - Scrape specified type log file for entries using awk with IPv4_RegEx regular expression and output (print) desired fields (source IP address).
+	# 1) awk - Scrape specified type log file for entries using awk with IPv4 regular expressions and output (print) desired fields (source IP address).
 
 	local Log_Set_Type_Header=''
 	Log_Set_Type_Header+="# $CHAIN (source addresses with $COUNT or more reject hits)"
@@ -270,7 +279,13 @@ Log_Set_Type_Finish() {
 
 	local Log_Set_Type_IP_Addresses=''
 	Log_Set_Type_IP_Addresses=$(cat "$FILE_NAME_TYPE_LOG" \
-	|awk --posix -v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" -v COUNT=$COUNT -v IPv4_Addr_FIELD=$IPv4_Addr_FIELD '{ if (($1 >= COUNT) && ($IPv4_Addr_FIELD ~ IPv4_RegEx)) print ($IPv4_Addr_FIELD) }' \
+	|awk --posix \
+	-v IPv4_RegEx="$IPV4ADDR_2Esc(/$IPV4CIDR)?" \
+	-v COUNT=$COUNT \
+	-v IPv4_Addr_FIELD=$IPv4_Addr_FIELD \
+	'{ \
+		if (($1 >= COUNT) && ($IPv4_Addr_FIELD ~ IPv4_RegEx)) {print ($IPv4_Addr_FIELD) } \
+	 }' \
 	|sort -V |uniq)
 
 	if [ "$Log_Set_Type_IP_Addresses" ]; then

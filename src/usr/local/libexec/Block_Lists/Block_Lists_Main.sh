@@ -15,18 +15,11 @@ create_apply_ipset() {
 	ipset create -exist ${temp_ipset} ${ipset_params}
 	ipset flush ${temp_ipset}
 
-	# IPv4 Regular Expressions
-	IPv4_RegEx='(([01]?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.){3}([01]?[0-9]{1,2}|2[0-4][0-9]|25[0-5])'
-	CIDR_RegEx='(/([12]?[0-9]|[3]?[0-2]))'
-
-	# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
-	IPv4_RegEx_2Esc=${IPv4_RegEx//\\/\\\\}
-
 	# Load the list into the new/temp set.  Ignoring any duplicate entries.
 	cat ${data_file} \
 	| awk --posix \
-	-v IPv4_RegEx="$IPv4_RegEx_2Esc$CIDR_RegEx?" \
-	'{ if ($1 ~ IPv4_RegEx) print ($1) }' \
+	-v IP_RegEx="$IPADDR_2Esc(/$IPCIDR)?" \
+	'{ if ($1 ~ IP_RegEx) print ($1) }' \
 	| grep -Ev "^192.168.0.0/16|^172.16.0.0/12|^127.0.0.0/8|^10.0.0.0/8|0.0.0.0/8" - \
 	| while read network; do
 #		ipset add -exist ${temp_ipset} ${network}	# This is very slow (pipe to ipset restore command instead)
@@ -155,6 +148,21 @@ get_target_url() {
 }
 
 
+IP_RegEx() {
+
+	# IPv4 Regular Expressions
+	IPV4SEG='(25[0-5]|(2[0-4]|1[0-9]|[1-9])?[0-9])'			# doted decimal notation; no leading 0 (octal) or 0x (hexadecimal)
+	IPV4ADDR='(('${IPV4SEG}'\.){3,3}('${IPV4SEG}'){1,1})'
+	IPV4CIDR='(3[0-2]|[12]?[0-9])'
+
+	IPADDR=${IPV4ADDR}
+	IPCIDR=${IPV4CIDR}
+
+	# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
+	IPADDR_2Esc=${IPADDR//\\/\\\\}
+}
+
+
 main() {
 	command=$1
 
@@ -163,6 +171,7 @@ main() {
 	fi
 
 	if [ "$command" == "load" ]; then
+		IP_RegEx
 		create_apply_ipset
 	fi
 
@@ -182,6 +191,7 @@ main() {
 	fi
 
 	if [ "$command" == "update" ] || [ "$command" == "" ]; then
+			IP_RegEx
 			get_target
 	fi
 }

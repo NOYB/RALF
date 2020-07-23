@@ -84,29 +84,29 @@ RegEx_Patterns_App_Specific() {
 
 	Type="($Query)"
 
-	  SECURITY_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* $Type.*$"
+	  SECURITY_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* $Type.*$"
 
-	      Query_Cache_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? $IPv4_RegEx#.* query .*cache.* denied$"
-	  SECURITY_STATIC_RegEx="^.* security: $Severity: client ?(@0x[[:xdigit:]]+)? $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* STATIC.*$"
+	      Query_Cache_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* query .*cache.* denied$"
+	  SECURITY_STATIC_RegEx="^.* security: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* STATIC.*$"
 
 # Query_Errors Logging Channel
-#	Query_Error="(query failed \(SERVFAIL\) for $IPv4_RegEx($CIDR_RegEx)?"
+#	Query_Error="(query failed \(SERVFAIL\) for ($IPV4ADDR(/$IPV4CIDR)?)"
 #	Type="($Query_Error)"
-#	QUERY_ERRORS_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* $Type.*$"
+#	QUERY_ERRORS_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* $Type.*$"
 #
-#			Query_Error_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? IPv4_RegEx#.* $Query_Error.*$"
-#	QUERY_ERRORS_STATIC_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? IPv4_RegEx#.* STATIC.*$"
+#			Query_Error_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* $Query_Error.*$"
+#	QUERY_ERRORS_STATIC_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* STATIC.*$"
 
 # Rate_Limiting Logging Channel
 	Rate_Limit="(NODATA|NXDOMAIN|REFUSED)"
 	Type="($Rate_Limit)"
-	  RATE_LIMIT_Scrape_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.*$"
+	  RATE_LIMIT_Scrape_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
 
-	  Rate_Limit_NODATA_RegEx="^.* $Category: $Severity: limit NODATA responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.*$"
-	Rate_Limit_NXDOMAIN_RegEx="^.* $Category: $Severity: limit NXDOMAIN responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.*$"
-	 Rate_Limit_REFUSED_RegEx="^.* $Category: $Severity: limit REFUSED error responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.*$"
-		 Rate_Limit_ALL_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.*$"
-	  RATE_LIMIT_STATIC_RegEx="^.* rate-limit: $Severity: limit ?($Type)? ?(error)? responses to $IPv4_RegEx($CIDR_RegEx)?(#[0-9]+)?.* STATIC.*$"
+	  Rate_Limit_NODATA_RegEx="^.* $Category: $Severity: limit NODATA responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
+	Rate_Limit_NXDOMAIN_RegEx="^.* $Category: $Severity: limit NXDOMAIN responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
+	 Rate_Limit_REFUSED_RegEx="^.* $Category: $Severity: limit REFUSED error responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
+		 Rate_Limit_ALL_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
+	  RATE_LIMIT_STATIC_RegEx="^.* rate-limit: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* STATIC.*$"
 }
 
 
