@@ -1,16 +1,36 @@
-#! /bin/bash
+#!/bin/bash
 
-target_type="url"
-target="https://www.spamhaus.org/drop/drop.lasso"
-ipset_params="hash:net"
+# All parameters $@ are passed to main function (Block_List_Main.sh).
+command=$1		# Commands: restore, unload, load, update
+ip_version=$2	# IP Versions: IPv4 (case sensitive) or empty
 
-#filename=$(basename ${target})
-filename=Spamhaus_DROP.lasso
-firewall_ipset=${filename%.*}			# ipset will be filename minus ext
-#data_dir="/var/db/${firewall_ipset}"	# data directory will be same
-data_dir="/var/db/Block_Lists"			# data directory
-data_file="${data_dir}/${filename}"
-ipset_dir="/etc/sysconfig/ipset.d"		# directory where ipsets are saved to and restored from
+if [ "$ip_version" == "IPv4" ] || [ "$ip_version" == "" ]; then
+	target_type="url"
+	target="https://www.spamhaus.org/drop/drop.txt"
+	ipset_params="hash:net maxelem 2048"
+
+	#filename=$(basename ${target})
+	filename=Spamhaus_DROP_IPv4.txt
+	firewall_ipset=${filename%.*}			# ipset will be filename minus ext
+	#data_dir="/var/db/${firewall_ipset}"	# data directory will be same
+	data_dir="/var/db/Block_Lists"			# data directory
+	data_file="${data_dir}/${filename}"
+	ipset_dir="/etc/sysconfig/ipset.d"		# directory where ipsets are saved to and restored from
+fi
+
+if [ "$ip_version" == "IPv6" ]; then
+	target_type="url"
+	target="https://www.spamhaus.org/drop/dropv6.txt"
+	ipset_params="hash:net family inet6 maxelem 1024"
+
+	#filename=$(basename ${target})
+	filename=Spamhaus_DROP_IPv6.txt
+	firewall_ipset=${filename%.*}			# ipset will be filename minus ext
+	#data_dir="/var/db/${firewall_ipset}"	# data directory will be same
+	data_dir="/var/db/Block_Lists"			# data directory
+	data_file="${data_dir}/${filename}"
+	ipset_dir="/etc/sysconfig/ipset.d"		# directory where ipsets are saved to and restored from
+fi
 
 DIR="${BASH_SOURCE%/*}"
 #if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi

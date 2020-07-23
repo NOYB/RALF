@@ -23,7 +23,8 @@ System_Config_App_Specific() {
 	LOG_FILES_DIR="/var/named/data/"
 
 	# Script to create/apply/update the IP set (full absolute path).
-	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh")
+	IPSET_SCRIPT_IPv4=("/usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh")
+	IPSET_SCRIPT_IPv6=("/usr/local/libexec/Block_Lists/ADF_DNS_DROP.sh" update IPv6)
 
 	# Array of log file sets to use.
 	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name (space delimited).
@@ -84,29 +85,29 @@ RegEx_Patterns_App_Specific() {
 
 	Type="($Query)"
 
-	  SECURITY_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* $Type.*$"
+	  SECURITY_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.* $Type.*$"
 
-	      Query_Cache_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* query .*cache.* denied$"
-	  SECURITY_STATIC_RegEx="^.* security: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* STATIC.*$"
+	      Query_Cache_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR)|($IPV6ADDR))#.* query .*cache.* denied$"
+	  SECURITY_STATIC_RegEx="^.* security: $Severity: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.* STATIC.*$"
 
 # Query_Errors Logging Channel
-#	Query_Error="(query failed \(SERVFAIL\) for ($IPV4ADDR(/$IPV4CIDR)?)"
+#	Query_Error="(query failed \(SERVFAIL\) for (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))"
 #	Type="($Query_Error)"
-#	QUERY_ERRORS_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* $Type.*$"
+#	QUERY_ERRORS_Scrape_RegEx="^.* $Category: $Severity: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.* $Type.*$"
 #
-#			Query_Error_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* $Query_Error.*$"
-#	QUERY_ERRORS_STATIC_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? ($IPV4ADDR)#.* STATIC.*$"
+#			Query_Error_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR)|($IPV6ADDR))#.* $Query_Error.*$"
+#	QUERY_ERRORS_STATIC_RegEx="^.* query-errors: info: client ?(@0x[[:xdigit:]]+)? (($IPV4ADDR)|($IPV6ADDR))#.* STATIC.*$"
 
 # Rate_Limiting Logging Channel
 	Rate_Limit="(NODATA|NXDOMAIN|REFUSED)"
 	Type="($Rate_Limit)"
-	  RATE_LIMIT_Scrape_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
+	  RATE_LIMIT_Scrape_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.*$"
 
-	  Rate_Limit_NODATA_RegEx="^.* $Category: $Severity: limit NODATA responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
-	Rate_Limit_NXDOMAIN_RegEx="^.* $Category: $Severity: limit NXDOMAIN responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
-	 Rate_Limit_REFUSED_RegEx="^.* $Category: $Severity: limit REFUSED error responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
-		 Rate_Limit_ALL_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.*$"
-	  RATE_LIMIT_STATIC_RegEx="^.* rate-limit: $Severity: limit ?($Type)? ?(error)? responses to ($IPV4ADDR(/$IPV4CIDR)?)(#[0-9]+)?.* STATIC.*$"
+	  Rate_Limit_NODATA_RegEx="^.* $Category: $Severity: limit NODATA responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.*$"
+	Rate_Limit_NXDOMAIN_RegEx="^.* $Category: $Severity: limit NXDOMAIN responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.*$"
+	 Rate_Limit_REFUSED_RegEx="^.* $Category: $Severity: limit REFUSED error responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.*$"
+		 Rate_Limit_ALL_RegEx="^.* $Category: $Severity: limit ?($Type)? ?(error)? responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.*$"
+	  RATE_LIMIT_STATIC_RegEx="^.* rate-limit: $Severity: limit ?($Type)? ?(error)? responses to (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(#[0-9]+)?.* STATIC.*$"
 }
 
 

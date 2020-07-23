@@ -99,9 +99,14 @@ get_target_file() {
 		# If the data directory does not exist, create it.
 		mkdir -pm 0750 ${data_dir}
 
-		cp -p ${target} ${data_file}
+		cp -p ${target} ${data_file}.tmp
 
-		if [ $? -eq 0 ]; then
+		# IPv split target into ipv data file
+		ipv_split_data_file
+
+		rm -f ${data_file}.tmp
+
+		if [ $split_rc -eq 0 ]; then
 
 			chmod 600 ${data_file}
 			create_apply_ipset
@@ -155,16 +160,72 @@ IP_RegEx() {
 	IPV4ADDR='(('${IPV4SEG}'\.){3,3}('${IPV4SEG}'){1,1})'
 	IPV4CIDR='(3[0-2]|[12]?[0-9])'
 
-	IPADDR=${IPV4ADDR}
-	IPCIDR=${IPV4CIDR}
+	# IPv6 Regular Expressions
+	IPV6SEG='[0-9a-fA-F]{1,4}'								# colon hextet notation; leading 0 permitted
+
+	IPV6SEG8='('${IPV6SEG}':){7,7}('${IPV6SEG}'){1,1}'		# 1:2:3:4:5:6:7:8
+	IPV6SEG7='('${IPV6SEG}':){1,7}(:''){1,1}'				# 1::                                 1:2:3:4:5:6:7::
+	IPV6SEG6='('${IPV6SEG}':){1,6}(:'${IPV6SEG}'){1,1}'		# 1::8               1:2:3:4:5:6::8   1:2:3:4:5:6::8
+	IPV6SEG5='('${IPV6SEG}':){1,5}(:'${IPV6SEG}'){1,2}'		# 1::7:8             1:2:3:4:5::7:8   1:2:3:4:5::8
+	IPV6SEG4='('${IPV6SEG}':){1,4}(:'${IPV6SEG}'){1,3}'		# 1::6:7:8           1:2:3:4::6:7:8   1:2:3:4::8
+	IPV6SEG3='('${IPV6SEG}':){1,3}(:'${IPV6SEG}'){1,4}'		# 1::5:6:7:8         1:2:3::5:6:7:8   1:2:3::8
+	IPV6SEG2='('${IPV6SEG}':){1,2}(:'${IPV6SEG}'){1,5}'		# 1::4:5:6:7:8       1:2::4:5:6:7:8   1:2::8
+	IPV6SEG1='('${IPV6SEG}':){1,1}(:'${IPV6SEG}'){1,6}'		# 1::3:4:5:6:7:8     1::3:4:5:6:7:8   1::8
+
+	IPV6SEG0=':((:'${IPV6SEG}'){1,7}|:)'					#  ::2:3:4:5:6:7:8    ::2:3:4:5:6:7:8  ::8       ::
+
+	IPV6LLZI='[fF][eE]80:(:'${IPV6SEG}'){0,4}%[0-9a-zA-Z]{1,}'	# fe80::7:8%eth0     fe80::7:8%1  (link-local IPv6 addresses with zone index)
+	IPV6V4TRN='::([fF]{4,4}(:0{1,4}){0,1}:){0,1}'${IPV4ADDR}	# ::255.255.255.255  ::ffff:255.255.255.255  ::ffff:0:255.255.255.255 (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+	IPV6V4EMB='('${IPV6SEG}':){1,4}:'${IPV4ADDR}				# 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+
+	IPV6ADDR='('\
+'('${IPV6SEG8}')|('${IPV6SEG7}')|('${IPV6SEG6}')|('${IPV6SEG5}')|('${IPV6SEG4}')|('${IPV6SEG3}')|('${IPV6SEG2}')|('${IPV6SEG1}')|('${IPV6SEG0}')|'\
+'('${IPV6LLZI}')|('${IPV6V4TRN}')|('${IPV6V4EMB}')'\
+')'
+
+	IPV6CIDR='(12[0-8]|(1[01]|[1-9])?[0-9])'
+
+
+	# Assign IPv4 or IPv6 RegEx
+	if [ "$ip_version" == "IPv6" ]; then
+		IPADDR=${IPV6ADDR}
+		IPCIDR=${IPV6CIDR}
+	else
+		IPADDR=${IPV4ADDR}
+		IPCIDR=${IPV4CIDR}
+	fi
 
 	# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
 	IPADDR_2Esc=${IPADDR//\\/\\\\}
 }
 
 
+ipv_split_data_file() {
+
+	split_rc=1
+
+	# IPv split target into ipv data file
+	if [ "$ip_version" == "IPv6" ]; then
+		grep -Ev "$IPV4ADDR(/$IPV4CIDR)?" ${data_file}.tmp >${data_file}.ipv
+	else
+		grep -Ev "$IPV6ADDR(/$IPV6CIDR)?" ${data_file}.tmp >${data_file}.ipv
+	fi
+
+	if [ $? -eq 0 ]; then
+		cmp -s -n 4194304 ${data_file}.ipv ${data_file}
+		if [ $? -eq 1 ]; then
+			mv -f ${data_file}.ipv ${data_file}
+			split_rc=$?
+		else
+			rm -f ${data_file}.ipv
+		fi
+	fi
+}
+
+
 main() {
 	command=$1
+	ip_version=$2
 
 	if [ "$command" == "restore" ]; then
 		restore_ipset

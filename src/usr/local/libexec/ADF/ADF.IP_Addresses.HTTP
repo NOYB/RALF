@@ -23,7 +23,8 @@ System_Config_App_Specific() {
 	LOG_FILES_DIR="/var/log/httpd/"
 
 	# Script to create/apply/update the IP set (full absolute path).
-	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh")
+	IPSET_SCRIPT_IPv4=("/usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh")
+	IPSET_SCRIPT_IPv6=("/usr/local/libexec/Block_Lists/ADF_HTTP_DROP.sh" update IPv6)
 
 	# Array of log file sets to use.
 	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name, INSTANCE (sub dir(s); optional) (space delimited).
@@ -83,10 +84,10 @@ RegEx_Patterns_App_Specific() {
 
 	Type="($Denied|$Nuisance|$Awstats|$Webalizer)"
 
-	  ERROR_Scrape_RegEx="^.* \[$Category:$Severity\].*\[client ($IPV4ADDR(/$IPV4CIDR)?)(:[0-9]+)?\].* $Type.*$"
+	  ERROR_Scrape_RegEx="^.* \[$Category:$Severity\].*\[client (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(:[0-9]+)?\].* $Type.*$"
 
-	       ERROR_LOG_RegEx="^.* \[$Category:$Severity\].*\[client ($IPV4ADDR(/$IPV4CIDR)?)(:[0-9]+)?\].* AH01630: client denied by server configuration.*$"
-	 NUISANCE_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client ($IPV4ADDR(/$IPV4CIDR)?)(:[0-9]+)?\].* NUISANCE: client.* STATIC.*$"
+	       ERROR_LOG_RegEx="^.* \[$Category:$Severity\].*\[client (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(:[0-9]+)?\].* AH01630: client denied by server configuration.*$"
+	 NUISANCE_STATIC_RegEx="^.* \[$Category:$Severity\].*\[client (($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))(:[0-9]+)?\].* NUISANCE: client.* STATIC.*$"
 
 	Category="(301|404|410)"
 
@@ -97,17 +98,17 @@ RegEx_Patterns_App_Specific() {
 
 	Type="($Awstats|$Webalizer|$WP|$Baiduspider)"
 
-	    ABUSE_Scrape_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*($Type.* $Category)|( $Category .*$Type.*) .*$"
+	    ABUSE_Scrape_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*($Type.* $Category)|( $Category .*$Type.*) .*$"
 
-         AWSTATS_LOG_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*awstats.*$"
-       WEBALIZER_LOG_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*webalizer.*$"
-              WP_LOG_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*wp-.*$"
-     BAIDUSPIDER_LOG_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*Baiduspider.*$"
+         AWSTATS_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*awstats.*$"
+       WEBALIZER_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*webalizer.*$"
+              WP_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*wp-.*$"
+     BAIDUSPIDER_LOG_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*Baiduspider.*$"
 
-	  AWSTATS_STATIC_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*awstats.* STATIC.*$"
-	WEBALIZER_STATIC_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*webalizer.* STATIC.*$"
-	       WP_STATIC_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*wp-.* STATIC.*$"
-  BAIDUSPIDER_STATIC_RegEx="^($IPV4ADDR(/$IPV4CIDR)?) .*Baiduspider.* STATIC.*$"
+	  AWSTATS_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*awstats.* STATIC.*$"
+	WEBALIZER_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*webalizer.* STATIC.*$"
+	       WP_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*wp-.* STATIC.*$"
+  BAIDUSPIDER_STATIC_RegEx="^(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?)) .*Baiduspider.* STATIC.*$"
 }
 
 
@@ -120,8 +121,10 @@ Log_Set_Type_Scrape_Unique() {
 	printf "%s" "$LOG_SET_TYPE_SCRAPE" \
 	|awk --posix -F "[][]| +" \
 	-v IPv4_RegEx="$IPV4ADDR_2Esc(/$IPV4CIDR)? +\t+" \
+	-v IPv6_RegEx="$IPV6ADDR_2Esc(/$IPV6CIDR)? +\t+" \
 	'{ \
 		gsub(IPv4_RegEx,""); \
+		gsub(IPv6_RegEx,""); \
 		print; \
 	}' \
 	)

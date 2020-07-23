@@ -37,6 +37,31 @@ RegEx_Patterns_Common() {
 	IPV4ADDR='(('${IPV4SEG}'\.){3,3}('${IPV4SEG}'){1,1})'
 	IPV4CIDR='(3[0-2]|[12]?[0-9])'
 
+	# IPv6 Regular Expressions
+	IPV6SEG='[0-9a-fA-F]{1,4}'								# colon hextet notation; leading 0 permitted
+
+	IPV6SEG8='('${IPV6SEG}':){7,7}('${IPV6SEG}'){1,1}'		# 1:2:3:4:5:6:7:8
+	IPV6SEG7='('${IPV6SEG}':){1,7}(:''){1,1}'				# 1::                                 1:2:3:4:5:6:7::
+	IPV6SEG6='('${IPV6SEG}':){1,6}(:'${IPV6SEG}'){1,1}'		# 1::8               1:2:3:4:5:6::8   1:2:3:4:5:6::8
+	IPV6SEG5='('${IPV6SEG}':){1,5}(:'${IPV6SEG}'){1,2}'		# 1::7:8             1:2:3:4:5::7:8   1:2:3:4:5::8
+	IPV6SEG4='('${IPV6SEG}':){1,4}(:'${IPV6SEG}'){1,3}'		# 1::6:7:8           1:2:3:4::6:7:8   1:2:3:4::8
+	IPV6SEG3='('${IPV6SEG}':){1,3}(:'${IPV6SEG}'){1,4}'		# 1::5:6:7:8         1:2:3::5:6:7:8   1:2:3::8
+	IPV6SEG2='('${IPV6SEG}':){1,2}(:'${IPV6SEG}'){1,5}'		# 1::4:5:6:7:8       1:2::4:5:6:7:8   1:2::8
+	IPV6SEG1='('${IPV6SEG}':){1,1}(:'${IPV6SEG}'){1,6}'		# 1::3:4:5:6:7:8     1::3:4:5:6:7:8   1::8
+
+	IPV6SEG0=':((:'${IPV6SEG}'){1,7}|:)'					#  ::2:3:4:5:6:7:8    ::2:3:4:5:6:7:8  ::8       ::
+
+	IPV6LLZI='[fF][eE]80:(:'${IPV6SEG}'){0,4}%[0-9a-zA-Z]{1,}'	# fe80::7:8%eth0     fe80::7:8%1  (link-local IPv6 addresses with zone index)
+	IPV6V4TRN='::([fF]{4,4}(:0{1,4}){0,1}:){0,1}'${IPV4ADDR}	# ::255.255.255.255  ::ffff:255.255.255.255  ::ffff:0:255.255.255.255 (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+	IPV6V4EMB='('${IPV6SEG}':){1,4}:'${IPV4ADDR}				# 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+
+	IPV6ADDR='('\
+'('${IPV6SEG8}')|('${IPV6SEG7}')|('${IPV6SEG6}')|('${IPV6SEG5}')|('${IPV6SEG4}')|('${IPV6SEG3}')|('${IPV6SEG2}')|('${IPV6SEG1}')|('${IPV6SEG0}')|'\
+'('${IPV6LLZI}')|('${IPV6V4TRN}')|('${IPV6V4EMB}')'\
+')'
+
+	IPV6CIDR='(12[0-8]|(1[01]|[1-9])?[0-9])'
+
 	Server_Name_RegEx=$Server_Name
 }
 
@@ -220,6 +245,7 @@ SCRAPE_LOG_SET_TYPES() {
 		# Double backslashes (escape) needed for RegEx strings for use in awk.  Replace each backslash in RegEx with two backslashes.
 		Log_RegEx_2Esc=${Log_RegEx//\\/\\\\}
 		IPV4ADDR_2Esc=${IPV4ADDR//\\/\\\\}
+		IPV6ADDR_2Esc=${IPV6ADDR//\\/\\\\}
 
 		# Status & Working Files
 		FILE_NAME_TYPE_LOG=$ADF_DIR$INSTANCE_DIR$LOG_FILE_NAME"."$CATEGORY"_"$TYPENAME".IP_Addresses.Log"
@@ -251,11 +277,15 @@ Log_Set_Type_Scrape() {
 	|awk --posix -F "[][]| +" \
 	-v Log_RegEx="$Log_RegEx_2Esc" \
 	-v IPv4_RegEx="$IPV4ADDR_2Esc(/$IPV4CIDR)?" \
+	-v IPv6_RegEx="$IPV6ADDR_2Esc(/$IPV6CIDR)?" \
 	'{ \
 		if ($0 ~ Log_RegEx) { \
 			match($0,IPv4_RegEx); \
 			IPv4_Addr=substr($0,RSTART,RLENGTH); \
 			if (IPv4_Addr) {printf "%-18s %s\n", IPv4_Addr, $0} \
+			match($0,IPv6_RegEx); \
+			IPv6_Addr=substr($0,RSTART,RLENGTH); \
+			if (IPv6_Addr) {printf "%-18s %s\n", IPv6_Addr, $0} \
 		} \
 	}' \
 	)
@@ -266,12 +296,13 @@ Log_Set_Type_Scrape() {
 	File_Update "$Log_Set_Type_IP_Addresses" "$FILE_NAME_TYPE_LOG"
 
 	IPv4_Addr_FIELD='2'	# Log_Set_Type_Finish() needs the IP address field (column) number.
+	IPv6_Addr_FIELD='2'	# Log_Set_Type_Finish() needs the IP address field (column) number.
 }
 
 
 Log_Set_Type_Finish() {
 	# Create ADF DROP list containing only IP addresses from scraped log files.
-	# 1) awk - Scrape specified type log file for entries using awk with IPv4 regular expressions and output (print) desired fields (source IP address).
+	# 1) awk - Scrape specified type log file for entries using awk with IPv4 & IPv6 regular expressions and output (print) desired fields (source IP address).
 
 	local Log_Set_Type_Header=''
 	Log_Set_Type_Header+="# $CHAIN (source addresses with $COUNT or more reject hits)"
@@ -281,10 +312,13 @@ Log_Set_Type_Finish() {
 	Log_Set_Type_IP_Addresses=$(cat "$FILE_NAME_TYPE_LOG" \
 	|awk --posix \
 	-v IPv4_RegEx="$IPV4ADDR_2Esc(/$IPV4CIDR)?" \
+	-v IPv6_RegEx="$IPV6ADDR_2Esc(/$IPV6CIDR)?" \
 	-v COUNT=$COUNT \
 	-v IPv4_Addr_FIELD=$IPv4_Addr_FIELD \
+	-v IPv6_Addr_FIELD=$IPv6_Addr_FIELD \
 	'{ \
 		if (($1 >= COUNT) && ($IPv4_Addr_FIELD ~ IPv4_RegEx)) {print ($IPv4_Addr_FIELD) } \
+		if (($1 >= COUNT) && ($IPv6_Addr_FIELD ~ IPv6_RegEx)) {print ($IPv6_Addr_FIELD) } \
 	 }' \
 	|sort -V |uniq)
 
@@ -315,7 +349,8 @@ Finish() {
 
 	unset Log_Set_IP_Addresses_new
 
-	"${IPSET_SCRIPT[@]}"
+	"${IPSET_SCRIPT_IPv4[@]}"
+	"${IPSET_SCRIPT_IPv6[@]}"
 }
 
 

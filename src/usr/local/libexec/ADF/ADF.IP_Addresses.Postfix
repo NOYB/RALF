@@ -23,7 +23,8 @@ System_Config_App_Specific() {
 	LOG_FILES_DIR="/var/log/postfix/"
 
 	# Script to create/apply/update the IP set (full absolute path).
-	IPSET_SCRIPT=("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
+	IPSET_SCRIPT_IPv4=("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh")
+	IPSET_SCRIPT_IPv6=("/usr/local/libexec/Block_Lists/ADF_SMTP_DROP.sh" update IPv6)
 
 	# Array of log file sets to use.
 	# LOG_FILE_NAME, NUM_LOG_FILE_VERSIONS to scrape, TYPES_PREFIX, LOG_SET_CATEGORY, TYPES array name (space delimited).
@@ -95,13 +96,13 @@ RegEx_Patterns_App_Specific() {
 
 	# Common MX log strings, for each type of NOQUEUE Reject
 	MX_Scrape_RegEx='NOQUEUE: ?.* reject: ?'
-	MX_from_RegEx="(CONNECT|HELO|EHLO|MAIL|RCPT|VRFY) from .*\[($IPV4ADDR(/$IPV4CIDR)?)\]: $SMTP_Status_Code_RegEx"
+	MX_from_RegEx="(CONNECT|HELO|EHLO|MAIL|RCPT|VRFY) from .*\[(($IPV4ADDR(/$IPV4CIDR)?)|($IPV6ADDR(/$IPV6CIDR)?))\]: $SMTP_Status_Code_RegEx"
 	MX_Prefix_RegEx="^$Month_Abbr_RegEx  ?$Day_RegEx  ?$Time_24_HHMMss_RegEx $Server_Name_RegEx $MX_Mail_Service_Name_RegEx/$MX_Mail_Daemon_Name_RegEx\[$Service_Number_RegEx\]: $MX_Scrape_RegEx $MX_from_RegEx"
 
 	# MX log strings to look for, for each type of NOQUEUE Reject
-	     MX_RBL_RegEx="$MX_Prefix_RegEx Service unavailable; Client host \[($IPV4ADDR)\] blocked using .*( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
-	     MX_PTR_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your reverse hostname, \[($IPV4ADDR)\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
-	MX_HOSTNAME_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your hostname, \[($IPV4ADDR)\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+	     MX_RBL_RegEx="$MX_Prefix_RegEx Service unavailable; Client host \[(($IPV4ADDR)|($IPV6ADDR))\] blocked using .*( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+	     MX_PTR_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your reverse hostname, \[(($IPV4ADDR)|($IPV6ADDR))\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
+	MX_HOSTNAME_RegEx="$MX_Prefix_RegEx Client host rejected: cannot find your hostname, \[(($IPV4ADDR)|($IPV6ADDR))\];( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
 
 	   MX_RELAY_RegEx="$MX_Prefix_RegEx( <.*@.*>:)? Relay access denied;( from=<.*@.*>)?( to=<.*@.*>)? proto=.*SMTP( helo=<.*>)?$"
 
